@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 Visor de Inventario Pro - Web App</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS para Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --error-color: #e74c3c;
+            --info-color: #3498db;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            margin: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .input-section {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .input-section.active {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            background-color: rgba(102, 126, 234, 0.05);
+        }
+
+        .form-control.field-completed {
+            border-color: var(--success-color);
+            background-color: rgba(39, 174, 96, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+            padding: 15px 30px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .pallet-info {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            border: 2px solid var(--success-color);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            font-weight: bold;
+            color: #155724;
+            animation: pulse 2s infinite;
+        }
+
+        .pallet-not-found {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            border: 2px solid var(--error-color);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            font-weight: bold;
+            color: #721c24;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: bold;
+            animation: slideIn 0.5s ease;
+        }
+
+        .status-success { 
+            background: rgba(39, 174, 96, 0.1); 
+            color: var(--success-color); 
+            border-left: 4px solid var(--success-color); 
+        }
+        
+        .status-warning { 
+            background: rgba(243, 156, 18, 0.1); 
+            color: var(--warning-color); 
+            border-left: 4px solid var(--warning-color); 
+        }
+        
+        .status-error { 
+            background: rgba(231, 76, 60, 0.1); 
+            color: var(--error-color); 
+            border-left: 4px solid var(--error-color); 
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-top: 25px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-table th {
+            background: var(--primary-color);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .data-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .row-exacto { background-color: #d4edda !important; }
+        .row-sobrante { background-color: #fff3cd !important; }
+        .row-faltante { background-color: #f8d7da !important; }
+        .row-no-encontrado { background-color: #e2e3e5 !important; }
+
+        .keyboard-instructions {
+            background: linear-gradient(135deg, #e8f5e8, #d4edda);
+            border: 2px solid var(--success-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            color: #155724;
+        }
+
+        .duplicate-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .duplicate-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .processing-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        /* Animaciones de carga */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Processing Indicator -->
+    <div id="processingIndicator" class="processing-indicator">
+        <i class="fas fa-spinner fa-spin"></i> Procesando...
+    </div>
+
+    <!-- Duplicate Modal -->
+    <div id="duplicateModal" class="duplicate-modal">
+        <div class="duplicate-content">
+            <h3 class="text-warning"><i class="fas fa-exclamation-triangle"></i> Pallet Duplicado Detectado</h3>
+            <div id="duplicateInfo"></div>
+            <div class="mt-4">
+                <h5>¿Qué deseas hacer?</h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-warning" onclick="handleDuplicate('replace')">
+                        <i class="fas fa-sync"></i> Reemplazar anterior
+                    </button>
+                    <button class="btn btn-success" onclick="handleDuplicate('add')">
+                        <i class="fas fa-plus"></i> Añadir como nuevo
+                    </button>
+                    <button class="btn btn-secondary" onclick="handleDuplicate('cancel')">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-boxes"></i> Visor de Inventario Pro</h1>
+            <p class="mb-0">Aplicación Web - Digitación Ultra-Rápida</p>
+            <small>⚡ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="input-section" id="uploadSection">
+            <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Archivo de Inventario</h3>
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <input type="file" class="form-control mb-3" id="inventoryFile" accept=".xlsx,.xls" required>
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="loadInventory()">
+                            <i class="fas fa-cloud-upload-alt"></i> Cargar Inventario
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Dashboard -->
+        <div id="statsSection" class="row mb-4" style="display: none;">
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value" id="totalCount">0</div>
+                    <div class="text-muted">Total</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value text-success" id="exactCount">0</div>
+                    <div class="text-muted">Exactos</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value text-warning" id="overCount">0</div>
+                    <div class="text-muted">Sobrantes</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value text-danger" id="underCount">0</div>
+                    <div class="text-muted">Faltantes</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value text-info" id="notFoundCount">0</div>
+                    <div class="text-muted">No Encontrados</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card">
+                    <div class="metric-value" id="precisionPercent">0%</div>
+                    <div class="text-muted">Precisión</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div id="chartsSection" class="charts-section" style="display: none;">
+            <div class="chart-card">
+                <h4 class="text-center mb-3"><i class="fas fa-chart-pie"></i> Distribución de Resultados</h4>
+                <canvas id="distributionChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4 class="text-center mb-3"><i class="fas fa-chart-bar"></i> Análisis por Almacén</h4>
+                <canvas id="warehouseChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Input Section -->
+        <div id="inputSection" class="input-section active" style="display: none;">
+            <h3 class="text-center mb-4"><i class="fas fa-keyboard"></i> Digitación Ultra-Rápida</h3>
+            
+            <div class="keyboard-instructions">
+                <i class="fas fa-bolt"></i>
+                <strong>🚀 Navegación Perfecta:</strong><br>
+                1️⃣ <strong>Tablilla</strong> → <kbd>Enter</kbd> → 2️⃣ <strong>ID Pallet</strong> → <kbd>Enter</kbd> → 3️⃣ <strong>Cantidad</strong> → <kbd>Enter</kbd> (agregar automáticamente)<br>
+                <small>💡 La información del pallet aparece automáticamente | Auto-focus después de agregar</small>
+            </div>
+
+            <form id="palletForm" onsubmit="return false;">
+                <div class="row">
+                    <div class="col-md-2">
+                        <label for="numeroTablilla" class="form-label fw-bold">📋 Tablilla</label>
+                        <input type="text" class="form-control" id="numeroTablilla" placeholder="001" data-field-index="0" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="idPallet" class="form-label fw-bold">🏷️ ID Pallet</label>
+                        <input type="text" class="form-control" id="idPallet" placeholder="PLT001" data-field-index="1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="cantidadContada" class="form-label fw-bold">📊 Cantidad</label>
+                        <input type="number" class="form-control" id="cantidadContada" min="0" placeholder="0" data-field-index="2" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">&nbsp;</label>
+                        <button type="button" class="btn btn-primary w-100" id="addButton" onclick="addPallet()">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">&nbsp;</label>
+                        <button type="button" class="btn btn-outline-danger w-100" onclick="clearAll()">
+                            <i class="fas fa-trash"></i> Limpiar Todo
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Pallet Info Display -->
+            <div id="palletInfo" class="mt-3"></div>
+            
+            <!-- Status Messages -->
+            <div id="statusMessages" class="mt-3"></div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="resultsSection" class="table-container" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3><i class="fas fa-table"></i> Resultados del Conteo</h3>
+                <div>
+                    <button class="btn btn-success me-2" onclick="exportToExcel()">
+                        <i class="fas fa-download"></i> Descargar Excel
+                    </button>
+                    <button class="btn btn-info" onclick="toggleCharts()">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" id="searchInput" placeholder="🔍 Buscar en resultados..." onkeyup="filterTable()">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-control" id="statusFilter" onchange="filterTable()">
+                        <option value="">Todos los estados</option>
+                        <option value="exacto">Exactos</option>
+                        <option value="sobrante">Sobrantes</option>
+                        <option value="faltante">Faltantes</option>
+                        <option value="no-encontrado">No encontrados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100" onclick="editSelected()">
+                        <i class="fas fa-edit"></i> Editar Seleccionado
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped data-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Sel</th>
+                            <th>Tablilla</th>
+                            <th>ID Pallet</th>
+                            <th>Almacén</th>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Contado</th>
+                            <th>Sistema</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Variables globales
+        let inventoryData = [];
+        let countedData = [];
+        let currentEditIndex = -1;
+        let charts = {};
+
+        // Clase principal de la aplicación
+        class InventoryApp {
+            constructor() {
+                this.initializeKeyboardNavigation();
+                this.initializeCharts();
+                this.showProcessing(false);
+            }
+
+            // Sistema de navegación por teclado PERFECTO
+            initializeKeyboardNavigation() {
+                const fields = document.querySelectorAll('[data-field-index]');
+                
+                fields.forEach((field, index) => {
+                    field.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            
+                            if (index === fields.length - 1) {
+                                // Último campo - agregar automáticamente
+                                this.addPallet();
+                            } else {
+                                // Ir al siguiente campo
+                                const nextField = fields[index + 1];
+                                if (nextField) {
+                                    nextField.focus();
+                                    nextField.select();
+                                }
+                            }
+                        }
+                    });
+
+                    field.addEventListener('input', (e) => {
+                        // Marcar campo como completado
+                        if (e.target.value.trim()) {
+                            e.target.classList.add('field-completed');
+                        } else {
+                            e.target.classList.remove('field-completed');
+                        }
+
+                        // Auto-búsqueda para ID Pallet
+                        if (index === 1 && e.target.value.trim()) {
+                            this.searchPalletInfo(e.target.value.trim());
+                        }
+                    });
+                });
+
+                console.log('✅ Sistema de navegación por teclado inicializado');
+            }
+
+            // Cargar archivo de inventario
+            async loadInventory() {
+                const fileInput = document.getElementById('inventoryFile');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Por favor selecciona un archivo');
+                    return;
+                }
+
+                this.showProcessing(true);
+
+                try {
+                    const data = await file.arrayBuffer();
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    // Validar columnas requeridas
+                    if (jsonData.length === 0) {
+                        throw new Error('El archivo está vacío');
+                    }
+
+                    const firstRow = jsonData[0];
+                    const requiredCols = ['Id de pallet', 'Inventario físico'];
+                    const missingCols = requiredCols.filter(col => !(col in firstRow));
+
+                    if (missingCols.length > 0) {
+                        throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}`);
+                    }
+
+                    // Procesar datos
+                    inventoryData = jsonData.map(row => ({
+                        id: String(row['Id de pallet'] || '').trim(),
+                        quantity: parseInt(row['Inventario físico']) || 0,
+                        warehouse: String(row['Almacén'] || 'Almacén General').trim(),
+                        code: String(row['Código de artículo'] || 'N/A').trim(),
+                        name: String(row['Nombre del producto'] || 'Producto sin nombre').trim()
+                    }));
+
+                    // Mostrar estadísticas de carga
+                    const duplicates = this.findDuplicates(inventoryData.map(item => item.id));
+                    
+                    this.showMessage(`✅ Inventario cargado: ${inventoryData.length} registros${duplicates > 0 ? ` (${duplicates} duplicados detectados)` : ''}`, 'success');
+                    
+                    // Mostrar secciones
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('statsSection').style.display = 'block';
+                    document.getElementById('inputSection').style.display = 'block';
+                    
+                    // Auto-focus en primer campo
+                    setTimeout(() => {
+                        document.getElementById('numeroTablilla').focus();
+                    }, 100);
+
+                } catch (error) {
+                    this.showMessage(`❌ Error cargando archivo: ${error.message}`, 'error');
+                } finally {
+                    this.showProcessing(false);
+                }
+            }
+
+            // Buscar información del pallet
+            searchPalletInfo(palletId) {
+                const info = inventoryData.find(item => item.id.toLowerCase() === palletId.toLowerCase());
+                const infoDiv = document.getElementById('palletInfo');
+                
+                if (info) {
+                    infoDiv.innerHTML = `
+                        <div class="pallet-info">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>✅ Detectado:</strong> ${info.warehouse} | ${info.code} | 
+                            ${info.name.substring(0, 40)}${info.name.length > 40 ? '...' : ''} | 
+                            Sistema: <strong>${info.quantity}</strong>
+                        </div>
+                    `;
+                } else {
+                    infoDiv.innerHTML = `
+                        <div class="pallet-not-found">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>⚠️ Pallet no encontrado en el sistema</strong>
+                        </div>
+                    `;
+                }
+            }
+
+            // Agregar pallet
+            addPallet() {
+                const tablilla = document.getElementById('numeroTablilla').value.trim();
+                const palletId = document.getElementById('idPallet').value.trim();
+                const quantity = parseInt(document.getElementById('cantidadContada').value) || 0;
+
+                if (!tablilla || !palletId) {
+                    this.showMessage('❌ Por favor completa Tablilla e ID de Pallet', 'error');
+                    return;
+                }
+
+                // Verificar duplicados
+                const existingIndex = countedData.findIndex(item => item.palletId === palletId);
+                
+                if (existingIndex !== -1) {
+                    this.showDuplicateModal(tablilla, palletId, quantity, existingIndex);
+                    return;
+                }
+
+                // Procesar pallet
+                this.processPallet(tablilla, palletId, quantity);
+            }
+
+            // Procesar pallet
+            processPallet(tablilla, palletId, quantity, replaceIndex = -1) {
+                const inventoryInfo = inventoryData.find(item => item.id.toLowerCase() === palletId.toLowerCase());
+                
+                const newItem = {
+                    tablilla: tablilla,
+                    palletId: palletId,
+                    warehouse: inventoryInfo ? inventoryInfo.warehouse : 'N/A',
+                    code: inventoryInfo ? inventoryInfo.code : 'N/A',
+                    name: inventoryInfo ? inventoryInfo.name : 'N/A',
+                    countedQuantity: quantity,
+                    systemQuantity: inventoryInfo ? inventoryInfo.quantity : null,
+                    difference: quantity - (inventoryInfo ? inventoryInfo.quantity : 0),
+                    timestamp: new Date()
+                };
+
+                if (replaceIndex >= 0) {
+                    countedData[replaceIndex] = newItem;
+                    this.showMessage(`🔄 Pallet ${palletId} reemplazado`, 'warning');
+                } else {
+                    countedData.push(newItem);
+                }
+
+                // Feedback visual
+                if (inventoryInfo) {
+                    if (newItem.difference === 0) {
+                        this.showMessage(`✅ ${palletId}: Cantidad exacta (${quantity}) - ${inventoryInfo.name.substring(0, 30)}`, 'success');
+                    } else if (newItem.difference > 0) {
+                        this.showMessage(`🔼 ${palletId}: Sobrante de ${newItem.difference} unidades - ${inventoryInfo.name.substring(0, 30)}`, 'warning');
+                    } else {
+                        this.showMessage(`🔽 ${palletId}: Faltante de ${Math.abs(newItem.difference)} unidades - ${inventoryInfo.name.substring(0, 30)}`, 'error');
+                    }
+                } else {
+                    this.showMessage(`❓ ${palletId}: No encontrado en sistema - ${quantity} unidades`, 'info');
+                }
+
+                this.clearForm();
+                this.updateStats();
+                this.updateTable();
+                this.updateCharts();
+            }
+
+            // Modal de duplicados
+            showDuplicateModal(tablilla, palletId, quantity, existingIndex) {
+                const modal = document.getElementById('duplicateModal');
+                const info = document.getElementById('duplicateInfo');
+                
+                const existingItem = countedData[existingIndex];
+                info.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>Pallet:</strong> ${palletId}<br>
+                        <strong>Cantidad anterior:</strong> ${existingItem.countedQuantity}<br>
+                        <strong>Cantidad nueva:</strong> ${quantity}
+                    </div>
+                `;
+                
+                modal.style.display = 'flex';
+                
+                // Guardar datos temporales
+                window.tempDuplicateData = { tablilla, palletId, quantity, existingIndex };
+            }
+
+            // Limpiar formulario y auto-focus
+            clearForm() {
+                document.getElementById('palletForm').reset();
+                document.getElementById('palletInfo').innerHTML = '';
+                
+                // Remover clases de completado
+                document.querySelectorAll('.form-control').forEach(field => {
+                    field.classList.remove('field-completed');
+                });
+                
+                // Auto-focus en primer campo
+                setTimeout(() => {
+                    document.getElementById('numeroTablilla').focus();
+                    document.getElementById('numeroTablilla').select();
+                }, 100);
+            }
+
+            // Actualizar estadísticas
+            updateStats() {
+                const total = countedData.length;
+                const exact = countedData.filter(item => item.difference === 0).length;
+                const over = countedData.filter(item => item.difference > 0).length;
+                const under = countedData.filter(item => item.difference < 0).length;
+                const notFound = countedData.filter(item => item.systemQuantity === null).length;
+                const precision = total > 0 ? ((exact / total) * 100).toFixed(1) : 0;
+
+                document.getElementById('totalCount').textContent = total;
+                document.getElementById('exactCount').textContent = exact;
+                document.getElementById('overCount').textContent = over;
+                document.getElementById('underCount').textContent = under;
+                document.getElementById('notFoundCount').textContent = notFound;
+                document.getElementById('precisionPercent').textContent = precision + '%';
+            }
+
+            // Actualizar tabla
+            updateTable() {
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+
+                countedData.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    
+                    let statusClass = '';
+                    let statusText = '';
+                    
+                    if (item.systemQuantity === null) {
+                        statusClass = 'row-no-encontrado';
+                        statusText = '❓ No encontrado';
+                    } else if (item.difference === 0) {
+                        statusClass = 'row-exacto';
+                        statusText = '✅ Exacto';
+                    } else if (item.difference > 0) {
+                        statusClass = 'row-sobrante';
+                        statusText = `🔼 +${item.difference}`;
+                    } else {
+                        statusClass = 'row-faltante';
+                        statusText = `🔽 ${item.difference}`;
+                    }
+
+                    row.className = statusClass;
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="form-check-input" data-index="${index}"></td>
+                        <td>${item.tablilla}</td>
+                        <td><strong>${item.palletId}</strong></td>
+                        <td>${item.warehouse}</td>
+                        <td>${item.code}</td>
+                        <td>${item.name.substring(0, 30)}${item.name.length > 30 ? '...' : ''}</td>
+                        <td class="text-center"><strong>${item.countedQuantity}</strong></td>
+                        <td class="text-center">${item.systemQuantity !== null ? item.systemQuantity : 'N/A'}</td>
+                        <td class="text-center"><strong>${statusText}</strong></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editItem(${index})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                });
+
+                // Mostrar sección de resultados si hay datos
+                document.getElementById('resultsSection').style.display = countedData.length > 0 ? 'block' : 'none';
+            }
+
+            // Inicializar gráficos
+            initializeCharts() {
+                // Gráfico de distribución
+                const ctx1 = document.getElementById('distributionChart').getContext('2d');
+                charts.distribution = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Exactos', 'Sobrantes', 'Faltantes', 'No Encontrados'],
+                        datasets: [{
+                            data: [0, 0, 0, 0],
+                            backgroundColor: ['#27ae60', '#f39c12', '#e74c3c', '#9b59b6'],
+                            borderWidth: 3,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico por almacén
+                const ctx2 = document.getElementById('warehouseChart').getContext('2d');
+                charts.warehouse = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Pallets por Almacén',
+                            data: [],
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Actualizar gráficos
+            updateCharts() {
+                if (countedData.length === 0) return;
+
+                // Actualizar gráfico de distribución
+                const exact = countedData.filter(item => item.difference === 0).length;
+                const over = countedData.filter(item => item.difference > 0).length;
+                const under = countedData.filter(item => item.difference < 0).length;
+                const notFound = countedData.filter(item => item.systemQuantity === null).length;
+
+                charts.distribution.data.datasets[0].data = [exact, over, under, notFound];
+                charts.distribution.update();
+
+                // Actualizar gráfico por almacén
+                const warehouseCounts = {};
+                countedData.forEach(item => {
+                    warehouseCounts[item.warehouse] = (warehouseCounts[item.warehouse] || 0) + 1;
+                });
+
+                charts.warehouse.data.labels = Object.keys(warehouseCounts);
+                charts.warehouse.data.datasets[0].data = Object.values(warehouseCounts);
+                charts.warehouse.update();
+
+                // Mostrar sección de gráficos
+                document.getElementById('chartsSection').style.display = 'block';
+            }
+
+            // Mostrar mensaje
+            showMessage(message, type) {
+                const messagesDiv = document.getElementById('statusMessages');
+                const messageEl = document.createElement('div');
+                messageEl.className = `status-message status-${type}`;
+                messageEl.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+                
+                messagesDiv.appendChild(messageEl);
+                
+                // Remover después de 5 segundos
+                setTimeout(() => {
+                    if (messageEl.parentNode) {
+                        messageEl.parentNode.removeChild(messageEl);
+                    }
+                }, 5000);
+            }
+
+            // Mostrar indicador de procesamiento
+            showProcessing(show) {
+                document.getElementById('processingIndicator').style.display = show ? 'block' : 'none';
+            }
+
+            // Encontrar duplicados
+            findDuplicates(arr) {
+                return arr.length - new Set(arr).size;
+            }
+
+            // Exportar a Excel
+            exportToExcel() {
+                if (countedData.length === 0) {
+                    alert('No hay datos para exportar');
+                    return;
+                }
+
+                const wb = XLSX.utils.book_new();
+                
+                // Hoja de resumen
+                const summary = [
+                    ['Métrica', 'Valor'],
+                    ['Fecha del Reporte', new Date().toLocaleString()],
+                    ['Total Pallets Digitados', countedData.length],
+                    ['Pallets Exactos', countedData.filter(item => item.difference === 0).length],
+                    ['Pallets Sobrantes', countedData.filter(item => item.difference > 0).length],
+                    ['Pallets Faltantes', countedData.filter(item => item.difference < 0).length],
+                    ['Pallets No Encontrados', countedData.filter(item => item.systemQuantity === null).length]
+                ];
+                
+                const summaryWs = XLSX.utils.aoa_to_sheet(summary);
+                XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
+
+                // Hoja de datos completos
+                const fullData = countedData.map(item => ({
+                    'Tablilla': item.tablilla,
+                    'ID Pallet': item.palletId,
+                    'Almacén': item.warehouse,
+                    'Código': item.code,
+                    'Producto': item.name,
+                    'Cantidad Contada': item.countedQuantity,
+                    'Inventario Sistema': item.systemQuantity,
+                    'Diferencia': item.difference
+                }));
+                
+                const dataWs = XLSX.utils.json_to_sheet(fullData);
+                XLSX.utils.book_append_sheet(wb, dataWs, 'Datos Completos');
+
+                // Hoja de discrepancias
+                const discrepancies = countedData.filter(item => item.difference !== 0);
+                if (discrepancies.length > 0) {
+                    const discWs = XLSX.utils.json_to_sheet(discrepancies.map(item => ({
+                        'Tablilla': item.tablilla,
+                        'ID Pallet': item.palletId,
+                        'Almacén': item.warehouse,
+                        'Código': item.code,
+                        'Producto': item.name,
+                        'Cantidad Contada': item.countedQuantity,
+                        'Inventario Sistema': item.systemQuantity,
+                        'Diferencia': item.difference
+                    })));
+                    XLSX.utils.book_append_sheet(wb, discWs, 'Discrepancias');
+                }
+
+                // Descargar archivo
+                const fileName = `Inventario_Pro_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                this.showMessage('📊 Reporte Excel generado y descargado', 'success');
+            }
+        }
+
+        // Instancia global de la aplicación
+        let app;
+
+        // Funciones globales
+        function loadInventory() {
+            app.loadInventory();
+        }
+
+        function addPallet() {
+            app.addPallet();
+        }
+
+        function handleDuplicate(action) {
+            const modal = document.getElementById('duplicateModal');
+            const data = window.tempDuplicateData;
+            
+            if (action === 'replace') {
+                app.processPallet(data.tablilla, data.palletId, data.quantity, data.existingIndex);
+            } else if (action === 'add') {
+                app.processPallet(data.tablilla, data.palletId, data.quantity);
+            }
+            
+            modal.style.display = 'none';
+            delete window.tempDuplicateData;
+        }
+
+        function clearAll() {
+            if (confirm('¿Estás seguro de que quieres limpiar todos los datos?')) {
+                countedData = [];
+                app.updateStats();
+                app.updateTable();
+                app.updateCharts();
+                document.getElementById('chartsSection').style.display = 'none';
+                app.showMessage('🗑️ Todos los datos han sido limpiados', 'info');
+            }
+        }
+
+        function exportToExcel() {
+            app.exportToExcel();
+        }
+
+        function toggleCharts() {
+            const chartsSection = document.getElementById('chartsSection');
+            const isVisible = chartsSection.style.display !== 'none';
+            chartsSection.style.display = isVisible ? 'none' : 'block';
+            
+            if (!isVisible) {
+                app.updateCharts();
+            }
+        }
+
+        function filterTable() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const rows = document.querySelectorAll('#resultsTableBody tr');
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const matchesSearch = text.includes(searchTerm);
+                
+                let matchesStatus = true;
+                if (statusFilter) {
+                    matchesStatus = row.classList.contains(`row-${statusFilter}`);
+                }
+
+                row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+            });
+        }
+
+        function editItem(index) {
+            // Implementar edición inline
+            const item = countedData[index];
+            const newQuantity = prompt(`Editar cantidad para ${item.palletId}:`, item.countedQuantity);
+            
+            if (newQuantity !== null && !isNaN(newQuantity)) {
+                const quantity = parseInt(newQuantity);
+                const inventoryInfo = inventoryData.find(inv => inv.id.toLowerCase() === item.palletId.toLowerCase());
+                
+                item.countedQuantity = quantity;
+                item.difference = quantity - (inventoryInfo ? inventoryInfo.quantity : 0);
+                
+                app.updateStats();
+                app.updateTable();
+                app.updateCharts();
+                app.showMessage(`✏️ Pallet ${item.palletId} editado`, 'info');
+            }
+        }
+
+        function deleteItem(index) {
+            if (confirm(`¿Eliminar el pallet ${countedData[index].palletId}?`)) {
+                const deletedId = countedData[index].palletId;
+                countedData.splice(index, 1);
+                
+                app.updateStats();
+                app.updateTable();
+                app.updateCharts();
+                app.showMessage(`🗑️ Pallet ${deletedId} eliminado`, 'info');
+            }
+        }
+
+        function editSelected() {
+            const checkboxes = document.querySelectorAll('#resultsTableBody input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Selecciona al menos un registro para editar');
+                return;
+            }
+            
+            if (checkboxes.length > 1) {
+                alert('Selecciona solo un registro para editar');
+                return;
+            }
+            
+            const index = parseInt(checkboxes[0].getAttribute('data-index'));
+            editItem(index);
+        }
+
+        // Inicializar aplicación cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            app = new InventoryApp();
+            
+            // Cerrar modal al hacer clic fuera
+            document.getElementById('duplicateModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                }
+            });
+            
+            console.log('🚀 Visor de Inventario Pro - Web App inicializado');
+        });
+    </script>
+</body>
+</html>

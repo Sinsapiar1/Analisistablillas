@@ -1,0 +1,10 @@
+title: "Visor de Inventario Pro - Web App"
+description: "Sistema avanzado de análisis de inventarios físicos con navegación perfecta por teclado"
+theme: jekyll-theme-minimal
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - README_WEB_APP.md

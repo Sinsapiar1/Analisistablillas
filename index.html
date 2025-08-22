@@ -164,6 +164,12 @@
             color: var(--error-color); 
             border-left: 4px solid var(--error-color); 
         }
+        
+        .status-info { 
+            background: rgba(52, 152, 219, 0.1); 
+            color: var(--info-color); 
+            border-left: 4px solid var(--info-color); 
+        }
 
         .table-container {
             background: white;
@@ -249,16 +255,6 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
         }
 
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
-            50% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
         .processing-indicator {
             position: fixed;
             top: 20px;
@@ -272,7 +268,29 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
 
-        /* Animaciones de carga */
+        .debug-console {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
         .fade-in {
             animation: fadeIn 0.5s ease-in;
         }
@@ -287,7 +305,7 @@
 <body>
     <!-- Processing Indicator -->
     <div id="processingIndicator" class="processing-indicator">
-        <i class="fas fa-spinner fa-spin"></i> Procesando...
+        <i class="fas fa-spinner fa-spin"></i> <span id="processingText">Procesando...</span>
     </div>
 
     <!-- Duplicate Modal -->
@@ -317,29 +335,40 @@
         <div class="header">
             <h1><i class="fas fa-boxes"></i> Visor de Inventario Pro</h1>
             <p class="mb-0">Aplicación Web - Digitación Ultra-Rápida</p>
-            <small>⚡ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small>
+            <small>⚡ Optimizado para archivos grandes (12,000+ filas)</small>
         </div>
 
-                 <!-- File Upload Section -->
-         <div class="input-section" id="uploadSection">
-             <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Archivo de Inventario</h3>
-             <div class="row">
-                 <div class="col-md-8 offset-md-2">
-                     <input type="file" class="form-control mb-3" id="inventoryFile" accept=".xlsx,.xls" required onchange="showFileInfo()">
-                     <div id="fileInfo" class="alert alert-info" style="display: none;">
-                         <i class="fas fa-info-circle"></i> <span id="fileDetails"></span>
-                     </div>
-                     <div class="text-center">
-                         <button type="button" class="btn btn-primary btn-lg" onclick="loadInventory()">
-                             <i class="fas fa-cloud-upload-alt"></i> Cargar Inventario
-                         </button>
-                     </div>
-                     <div class="text-muted text-center mt-2">
-                         <small><i class="fas fa-info-circle"></i> Optimizado para archivos grandes (hasta 50MB / 50,000+ filas)</small>
-                     </div>
-                 </div>
-             </div>
-         </div>
+        <!-- Debug Console -->
+        <div class="debug-console" id="debugConsole">
+            <strong>🔍 Debug Console:</strong><br>
+            <div id="debugMessages"></div>
+        </div>
+        <div class="text-center mb-3">
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleDebug()">
+                <i class="fas fa-bug"></i> Mostrar/Ocultar Debug
+            </button>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="input-section" id="uploadSection">
+            <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Archivo de Inventario</h3>
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <input type="file" class="form-control mb-3" id="inventoryFile" accept=".xlsx,.xls" required onchange="showFileInfo()">
+                    <div id="fileInfo" class="alert alert-info" style="display: none;">
+                        <i class="fas fa-info-circle"></i> <span id="fileDetails"></span>
+                    </div>
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="loadInventory()" id="loadButton">
+                            <i class="fas fa-cloud-upload-alt"></i> Cargar Inventario
+                        </button>
+                    </div>
+                    <div class="text-muted text-center mt-2">
+                        <small><i class="fas fa-info-circle"></i> Optimizado para archivos grandes (hasta 50MB / 50,000+ filas)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Statistics Dashboard -->
         <div id="statsSection" class="row mb-4" style="display: none;">
@@ -505,28 +534,50 @@
         // Variables globales
         let inventoryData = [];
         let countedData = [];
-        let currentEditIndex = -1;
-        let charts = {};
+        let inventoryIndex = {};
+        let debugMode = false;
+
+        // Función de debug
+        function debugLog(message) {
+            console.log(message);
+            if (debugMode) {
+                const debugDiv = document.getElementById('debugMessages');
+                const timestamp = new Date().toLocaleTimeString();
+                debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+                debugDiv.scrollTop = debugDiv.scrollHeight;
+            }
+        }
+
+        function toggleDebug() {
+            debugMode = !debugMode;
+            document.getElementById('debugConsole').style.display = debugMode ? 'block' : 'none';
+        }
 
         // Clase principal de la aplicación
         class InventoryApp {
             constructor() {
+                debugLog('🚀 Inicializando aplicación...');
                 this.initializeKeyboardNavigation();
                 this.initializeCharts();
                 this.showProcessing(false);
+                debugLog('✅ Aplicación inicializada');
             }
 
             // Sistema de navegación por teclado PERFECTO
             initializeKeyboardNavigation() {
+                debugLog('⌨️ Configurando navegación por teclado...');
                 const fields = document.querySelectorAll('[data-field-index]');
+                debugLog(`📝 Encontrados ${fields.length} campos de entrada`);
                 
                 fields.forEach((field, index) => {
                     field.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
+                            debugLog(`⏎ Enter presionado en campo ${index}`);
                             
                             if (index === fields.length - 1) {
                                 // Último campo - agregar automáticamente
+                                debugLog('➕ Último campo - agregando automáticamente');
                                 this.addPallet();
                             } else {
                                 // Ir al siguiente campo
@@ -534,6 +585,7 @@
                                 if (nextField) {
                                     nextField.focus();
                                     nextField.select();
+                                    debugLog(`🎯 Navegando al campo ${index + 1}`);
                                 }
                             }
                         }
@@ -549,173 +601,212 @@
 
                         // Auto-búsqueda para ID Pallet
                         if (index === 1 && e.target.value.trim()) {
+                            debugLog(`🔍 Buscando pallet: ${e.target.value}`);
                             this.searchPalletInfo(e.target.value.trim());
                         }
                     });
                 });
 
-                console.log('✅ Sistema de navegación por teclado inicializado');
+                debugLog('✅ Sistema de navegación configurado');
             }
 
-                         // Cargar archivo de inventario - OPTIMIZADO para archivos grandes
-             async loadInventory() {
-                 const fileInput = document.getElementById('inventoryFile');
-                 const file = fileInput.files[0];
-                 
-                 if (!file) {
-                     alert('Por favor selecciona un archivo');
-                     return;
-                 }
+            // Cargar archivo de inventario - ROBUSTO para archivos grandes
+            async loadInventory() {
+                debugLog('📁 Iniciando carga de inventario...');
+                
+                const fileInput = document.getElementById('inventoryFile');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Por favor selecciona un archivo');
+                    debugLog('❌ No se seleccionó archivo');
+                    return;
+                }
 
-                 // Verificar tamaño del archivo
-                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                 console.log(`📁 Archivo seleccionado: ${file.name} (${fileSizeMB} MB)`);
-                 
-                 if (file.size > 50 * 1024 * 1024) { // 50MB límite
-                     alert(`Archivo muy grande (${fileSizeMB} MB). El límite es 50MB.`);
-                     return;
-                 }
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                debugLog(`📊 Archivo: ${file.name} (${fileSizeMB} MB)`);
+                
+                if (file.size > 50 * 1024 * 1024) {
+                    alert(`Archivo muy grande (${fileSizeMB} MB). El límite es 50MB.`);
+                    debugLog(`❌ Archivo muy grande: ${fileSizeMB} MB`);
+                    return;
+                }
 
-                 this.showProcessing(true);
-                 this.showMessage(`📁 Procesando archivo de ${fileSizeMB} MB...`, 'info');
+                this.showProcessing(true, 'Iniciando procesamiento...');
 
-                 try {
-                     // Usar setTimeout para no bloquear la UI
-                     await new Promise(resolve => setTimeout(resolve, 100));
-                     
-                     console.log('🔄 Leyendo archivo...');
-                     const data = await file.arrayBuffer();
-                     
-                     console.log('📊 Parseando Excel...');
-                     const workbook = XLSX.read(data, { 
-                         type: 'array',
-                         cellDates: false,
-                         cellNF: false,
-                         cellStyles: false
-                     });
-                     
-                     const sheetName = workbook.SheetNames[0];
-                     const worksheet = workbook.Sheets[sheetName];
-                     
-                     // Procesar en chunks para archivos grandes
-                     console.log('🔄 Convirtiendo a JSON...');
-                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                         raw: false,
-                         defval: ''
-                     });
+                try {
+                    // Paso 1: Leer archivo
+                    debugLog('🔄 Paso 1: Leyendo archivo...');
+                    this.updateProcessingText('Leyendo archivo...');
+                    
+                    const data = await file.arrayBuffer();
+                    debugLog(`📊 Archivo leído: ${data.byteLength} bytes`);
+                    
+                    // Paso 2: Parsear Excel
+                    debugLog('🔄 Paso 2: Parseando Excel...');
+                    this.updateProcessingText('Parseando Excel...');
+                    
+                    const workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellDates: false,
+                        cellNF: false,
+                        cellStyles: false,
+                        sheetStubs: false
+                    });
+                    
+                    debugLog(`📋 Hojas encontradas: ${workbook.SheetNames.join(', ')}`);
+                    
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    
+                    // Paso 3: Convertir a JSON
+                    debugLog('🔄 Paso 3: Convirtiendo a JSON...');
+                    this.updateProcessingText('Convirtiendo datos...');
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                        raw: false,
+                        defval: '',
+                        blankrows: false
+                    });
 
-                     console.log(`📋 ${jsonData.length} filas encontradas`);
+                    debugLog(`📋 ${jsonData.length} filas encontradas`);
 
-                     // Validar columnas requeridas
-                     if (jsonData.length === 0) {
-                         throw new Error('El archivo está vacío');
-                     }
+                    // Validar columnas requeridas
+                    if (jsonData.length === 0) {
+                        throw new Error('El archivo está vacío');
+                    }
 
-                     const firstRow = jsonData[0];
-                     const requiredCols = ['Id de pallet', 'Inventario físico'];
-                     const missingCols = requiredCols.filter(col => !(col in firstRow));
+                    const firstRow = jsonData[0];
+                    const availableCols = Object.keys(firstRow);
+                    debugLog(`📊 Columnas disponibles: ${availableCols.join(', ')}`);
+                    
+                    const requiredCols = ['Id de pallet', 'Inventario físico'];
+                    const missingCols = requiredCols.filter(col => !(col in firstRow));
 
-                     if (missingCols.length > 0) {
-                         throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}\nColumnas disponibles: ${Object.keys(firstRow).join(', ')}`);
-                     }
+                    if (missingCols.length > 0) {
+                        throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}\nColumnas disponibles: ${availableCols.join(', ')}`);
+                    }
 
-                     // Procesar datos en chunks para mejor performance
-                     console.log('🔄 Procesando datos...');
-                     inventoryData = [];
-                     const chunkSize = 1000;
-                     
-                     for (let i = 0; i < jsonData.length; i += chunkSize) {
-                         const chunk = jsonData.slice(i, i + chunkSize);
-                         
-                         const processedChunk = chunk.map(row => ({
-                             id: String(row['Id de pallet'] || '').trim(),
-                             quantity: parseInt(row['Inventario físico']) || 0,
-                             warehouse: String(row['Almacén'] || 'Almacén General').trim(),
-                             code: String(row['Código de artículo'] || 'N/A').trim(),
-                             name: String(row['Nombre del producto'] || 'Producto sin nombre').trim()
-                         }));
-                         
-                         inventoryData = inventoryData.concat(processedChunk);
-                         
-                         // Actualizar progreso
-                         const progress = Math.round((i + chunkSize) / jsonData.length * 100);
-                         this.showMessage(`🔄 Procesando: ${Math.min(progress, 100)}% (${inventoryData.length}/${jsonData.length} registros)`, 'info');
-                         
-                         // Permitir que la UI se actualice
-                         await new Promise(resolve => setTimeout(resolve, 10));
-                     }
+                    // Paso 4: Procesar datos en chunks
+                    debugLog('🔄 Paso 4: Procesando datos en chunks...');
+                    inventoryData = [];
+                    inventoryIndex = {};
+                    const chunkSize = 500; // Reducir chunk size para mejor responsividad
+                    
+                    for (let i = 0; i < jsonData.length; i += chunkSize) {
+                        const chunk = jsonData.slice(i, i + chunkSize);
+                        const progress = Math.round((i / jsonData.length) * 100);
+                        
+                        debugLog(`📊 Procesando chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(jsonData.length/chunkSize)} (${progress}%)`);
+                        this.updateProcessingText(`Procesando: ${progress}% (${i}/${jsonData.length})`);
+                        
+                        const processedChunk = chunk.map((row, chunkIndex) => {
+                            const item = {
+                                id: String(row['Id de pallet'] || '').trim(),
+                                quantity: parseInt(row['Inventario físico']) || 0,
+                                warehouse: String(row['Almacén'] || 'Almacén General').trim(),
+                                code: String(row['Código de artículo'] || 'N/A').trim(),
+                                name: String(row['Nombre del producto'] || 'Producto sin nombre').trim()
+                            };
+                            
+                            // Crear índice para búsquedas rápidas
+                            if (item.id) {
+                                inventoryIndex[item.id.toLowerCase()] = inventoryData.length + chunkIndex;
+                            }
+                            
+                            return item;
+                        });
+                        
+                        inventoryData = inventoryData.concat(processedChunk);
+                        
+                        // Permitir que la UI se actualice
+                        await new Promise(resolve => setTimeout(resolve, 5));
+                    }
 
-                     // Crear índice para búsquedas rápidas
-                     console.log('🔍 Creando índice de búsqueda...');
-                     window.inventoryIndex = {};
-                     inventoryData.forEach((item, index) => {
-                         window.inventoryIndex[item.id.toLowerCase()] = index;
-                     });
+                    // Paso 5: Finalizar
+                    debugLog('🔄 Paso 5: Finalizando...');
+                    this.updateProcessingText('Finalizando...');
 
-                     // Mostrar estadísticas de carga
-                     const duplicates = this.findDuplicates(inventoryData.map(item => item.id));
-                     
-                     this.showMessage(`✅ Inventario cargado exitosamente: ${inventoryData.length.toLocaleString()} registros${duplicates > 0 ? ` (${duplicates} duplicados detectados)` : ''}`, 'success');
-                     
-                     // Mostrar secciones
-                     document.getElementById('uploadSection').style.display = 'none';
-                     document.getElementById('statsSection').style.display = 'block';
-                     document.getElementById('inputSection').style.display = 'block';
-                     
-                     // Auto-focus en primer campo
-                     setTimeout(() => {
-                         document.getElementById('numeroTablilla').focus();
-                         console.log('🎯 Listo para digitación ultra-rápida');
-                     }, 100);
+                    const duplicates = this.findDuplicates(inventoryData.map(item => item.id));
+                    debugLog(`📊 Estadísticas: ${inventoryData.length} registros, ${duplicates} duplicados`);
+                    
+                    this.showMessage(`✅ Inventario cargado exitosamente: ${inventoryData.length.toLocaleString()} registros${duplicates > 0 ? ` (${duplicates} duplicados detectados)` : ''}`, 'success');
+                    
+                    // Mostrar secciones
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('statsSection').style.display = 'block';
+                    document.getElementById('inputSection').style.display = 'block';
+                    
+                    // Auto-focus en primer campo
+                    setTimeout(() => {
+                        document.getElementById('numeroTablilla').focus();
+                        debugLog('🎯 Auto-focus activado - listo para digitación');
+                    }, 100);
 
-                 } catch (error) {
-                     console.error('❌ Error:', error);
-                     this.showMessage(`❌ Error cargando archivo: ${error.message}`, 'error');
-                 } finally {
-                     this.showProcessing(false);
-                 }
-             }
+                } catch (error) {
+                    debugLog(`❌ Error: ${error.message}`);
+                    console.error('Error completo:', error);
+                    this.showMessage(`❌ Error cargando archivo: ${error.message}`, 'error');
+                    
+                    // Mostrar detalles técnicos en debug
+                    if (debugMode) {
+                        debugLog(`🔍 Stack trace: ${error.stack}`);
+                    }
+                } finally {
+                    this.showProcessing(false);
+                    debugLog('🏁 Proceso de carga finalizado');
+                }
+            }
 
-                         // Buscar información del pallet - OPTIMIZADO para archivos grandes
-             searchPalletInfo(palletId) {
-                 const infoDiv = document.getElementById('palletInfo');
-                 
-                 if (!palletId.trim()) {
-                     infoDiv.innerHTML = '';
-                     return;
-                 }
-                 
-                 // Búsqueda ultra-rápida usando índice
-                 const index = window.inventoryIndex ? window.inventoryIndex[palletId.toLowerCase()] : -1;
-                 const info = index !== -1 && index !== undefined ? inventoryData[index] : null;
-                 
-                 if (info) {
-                     infoDiv.innerHTML = `
-                         <div class="pallet-info">
-                             <i class="fas fa-check-circle"></i>
-                             <strong>✅ Detectado:</strong> ${info.warehouse} | ${info.code} | 
-                             ${info.name.substring(0, 40)}${info.name.length > 40 ? '...' : ''} | 
-                             Sistema: <strong>${info.quantity}</strong>
-                         </div>
-                     `;
-                 } else {
-                     infoDiv.innerHTML = `
-                         <div class="pallet-not-found">
-                             <i class="fas fa-exclamation-triangle"></i>
-                             <strong>⚠️ Pallet no encontrado en el sistema</strong>
-                         </div>
-                     `;
-                 }
-             }
+            // Buscar información del pallet - OPTIMIZADO
+            searchPalletInfo(palletId) {
+                const infoDiv = document.getElementById('palletInfo');
+                
+                if (!palletId.trim()) {
+                    infoDiv.innerHTML = '';
+                    return;
+                }
+                
+                debugLog(`🔍 Buscando pallet: ${palletId}`);
+                
+                // Búsqueda ultra-rápida usando índice
+                const index = inventoryIndex[palletId.toLowerCase()];
+                const info = index !== undefined ? inventoryData[index] : null;
+                
+                if (info) {
+                    debugLog(`✅ Pallet encontrado: ${info.warehouse} | ${info.code} | ${info.name}`);
+                    infoDiv.innerHTML = `
+                        <div class="pallet-info">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>✅ Detectado:</strong> ${info.warehouse} | ${info.code} | 
+                            ${info.name.substring(0, 40)}${info.name.length > 40 ? '...' : ''} | 
+                            Sistema: <strong>${info.quantity}</strong>
+                        </div>
+                    `;
+                } else {
+                    debugLog(`❌ Pallet no encontrado: ${palletId}`);
+                    infoDiv.innerHTML = `
+                        <div class="pallet-not-found">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>⚠️ Pallet no encontrado en el sistema</strong>
+                        </div>
+                    `;
+                }
+            }
 
             // Agregar pallet
             addPallet() {
+                debugLog('➕ Intentando agregar pallet...');
+                
                 const tablilla = document.getElementById('numeroTablilla').value.trim();
                 const palletId = document.getElementById('idPallet').value.trim();
                 const quantity = parseInt(document.getElementById('cantidadContada').value) || 0;
 
+                debugLog(`📊 Datos: Tablilla=${tablilla}, ID=${palletId}, Cantidad=${quantity}`);
+
                 if (!tablilla || !palletId) {
                     this.showMessage('❌ Por favor completa Tablilla e ID de Pallet', 'error');
+                    debugLog('❌ Campos incompletos');
                     return;
                 }
 
@@ -723,19 +814,23 @@
                 const existingIndex = countedData.findIndex(item => item.palletId === palletId);
                 
                 if (existingIndex !== -1) {
+                    debugLog(`⚠️ Duplicado detectado en índice ${existingIndex}`);
                     this.showDuplicateModal(tablilla, palletId, quantity, existingIndex);
                     return;
                 }
 
                 // Procesar pallet
+                debugLog('✅ Procesando pallet...');
                 this.processPallet(tablilla, palletId, quantity);
             }
 
-                         // Procesar pallet - OPTIMIZADO para archivos grandes
-             processPallet(tablilla, palletId, quantity, replaceIndex = -1) {
-                 // Búsqueda ultra-rápida usando índice
-                 const index = window.inventoryIndex ? window.inventoryIndex[palletId.toLowerCase()] : -1;
-                 const inventoryInfo = index !== -1 && index !== undefined ? inventoryData[index] : null;
+            // Procesar pallet
+            processPallet(tablilla, palletId, quantity, replaceIndex = -1) {
+                debugLog(`🔄 Procesando: ${palletId} (cantidad: ${quantity})`);
+                
+                // Búsqueda ultra-rápida usando índice
+                const index = inventoryIndex[palletId.toLowerCase()];
+                const inventoryInfo = index !== undefined ? inventoryData[index] : null;
                 
                 const newItem = {
                     tablilla: tablilla,
@@ -751,9 +846,11 @@
 
                 if (replaceIndex >= 0) {
                     countedData[replaceIndex] = newItem;
+                    debugLog(`🔄 Pallet reemplazado en índice ${replaceIndex}`);
                     this.showMessage(`🔄 Pallet ${palletId} reemplazado`, 'warning');
                 } else {
                     countedData.push(newItem);
+                    debugLog(`➕ Pallet agregado (total: ${countedData.length})`);
                 }
 
                 // Feedback visual
@@ -773,10 +870,14 @@
                 this.updateStats();
                 this.updateTable();
                 this.updateCharts();
+                
+                debugLog('✅ Pallet procesado completamente');
             }
 
             // Modal de duplicados
             showDuplicateModal(tablilla, palletId, quantity, existingIndex) {
+                debugLog(`⚠️ Mostrando modal de duplicado para ${palletId}`);
+                
                 const modal = document.getElementById('duplicateModal');
                 const info = document.getElementById('duplicateInfo');
                 
@@ -797,6 +898,8 @@
 
             // Limpiar formulario y auto-focus
             clearForm() {
+                debugLog('🧹 Limpiando formulario...');
+                
                 document.getElementById('palletForm').reset();
                 document.getElementById('palletInfo').innerHTML = '';
                 
@@ -809,6 +912,7 @@
                 setTimeout(() => {
                     document.getElementById('numeroTablilla').focus();
                     document.getElementById('numeroTablilla').select();
+                    debugLog('🎯 Auto-focus activado');
                 }, 100);
             }
 
@@ -827,10 +931,14 @@
                 document.getElementById('underCount').textContent = under;
                 document.getElementById('notFoundCount').textContent = notFound;
                 document.getElementById('precisionPercent').textContent = precision + '%';
+                
+                debugLog(`📊 Stats: Total=${total}, Exactos=${exact}, Precisión=${precision}%`);
             }
 
             // Actualizar tabla
             updateTable() {
+                debugLog('📋 Actualizando tabla...');
+                
                 const tbody = document.getElementById('resultsTableBody');
                 tbody.innerHTML = '';
 
@@ -880,88 +988,104 @@
 
                 // Mostrar sección de resultados si hay datos
                 document.getElementById('resultsSection').style.display = countedData.length > 0 ? 'block' : 'none';
+                debugLog(`📋 Tabla actualizada con ${countedData.length} registros`);
             }
 
             // Inicializar gráficos
             initializeCharts() {
-                // Gráfico de distribución
-                const ctx1 = document.getElementById('distributionChart').getContext('2d');
-                charts.distribution = new Chart(ctx1, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Exactos', 'Sobrantes', 'Faltantes', 'No Encontrados'],
-                        datasets: [{
-                            data: [0, 0, 0, 0],
-                            backgroundColor: ['#27ae60', '#f39c12', '#e74c3c', '#9b59b6'],
-                            borderWidth: 3,
-                            borderColor: '#fff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }
-                });
-
-                // Gráfico por almacén
-                const ctx2 = document.getElementById('warehouseChart').getContext('2d');
-                charts.warehouse = new Chart(ctx2, {
-                    type: 'bar',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'Pallets por Almacén',
-                            data: [],
-                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
+                debugLog('📈 Inicializando gráficos...');
+                
+                try {
+                    // Gráfico de distribución
+                    const ctx1 = document.getElementById('distributionChart').getContext('2d');
+                    window.distributionChart = new Chart(ctx1, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Exactos', 'Sobrantes', 'Faltantes', 'No Encontrados'],
+                            datasets: [{
+                                data: [0, 0, 0, 0],
+                                backgroundColor: ['#27ae60', '#f39c12', '#e74c3c', '#9b59b6'],
+                                borderWidth: 3,
+                                borderColor: '#fff'
+                            }]
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
                             }
                         }
-                    }
-                });
+                    });
+
+                    // Gráfico por almacén
+                    const ctx2 = document.getElementById('warehouseChart').getContext('2d');
+                    window.warehouseChart = new Chart(ctx2, {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Pallets por Almacén',
+                                data: [],
+                                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                                borderColor: 'rgba(102, 126, 234, 1)',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                    
+                    debugLog('✅ Gráficos inicializados');
+                } catch (error) {
+                    debugLog(`❌ Error inicializando gráficos: ${error.message}`);
+                }
             }
 
             // Actualizar gráficos
             updateCharts() {
                 if (countedData.length === 0) return;
 
-                // Actualizar gráfico de distribución
-                const exact = countedData.filter(item => item.difference === 0).length;
-                const over = countedData.filter(item => item.difference > 0).length;
-                const under = countedData.filter(item => item.difference < 0).length;
-                const notFound = countedData.filter(item => item.systemQuantity === null).length;
+                try {
+                    debugLog('📈 Actualizando gráficos...');
+                    
+                    // Actualizar gráfico de distribución
+                    const exact = countedData.filter(item => item.difference === 0).length;
+                    const over = countedData.filter(item => item.difference > 0).length;
+                    const under = countedData.filter(item => item.difference < 0).length;
+                    const notFound = countedData.filter(item => item.systemQuantity === null).length;
 
-                charts.distribution.data.datasets[0].data = [exact, over, under, notFound];
-                charts.distribution.update();
+                    window.distributionChart.data.datasets[0].data = [exact, over, under, notFound];
+                    window.distributionChart.update();
 
-                // Actualizar gráfico por almacén
-                const warehouseCounts = {};
-                countedData.forEach(item => {
-                    warehouseCounts[item.warehouse] = (warehouseCounts[item.warehouse] || 0) + 1;
-                });
+                    // Actualizar gráfico por almacén
+                    const warehouseCounts = {};
+                    countedData.forEach(item => {
+                        warehouseCounts[item.warehouse] = (warehouseCounts[item.warehouse] || 0) + 1;
+                    });
 
-                charts.warehouse.data.labels = Object.keys(warehouseCounts);
-                charts.warehouse.data.datasets[0].data = Object.values(warehouseCounts);
-                charts.warehouse.update();
+                    window.warehouseChart.data.labels = Object.keys(warehouseCounts);
+                    window.warehouseChart.data.datasets[0].data = Object.values(warehouseCounts);
+                    window.warehouseChart.update();
 
-                // Mostrar sección de gráficos
-                document.getElementById('chartsSection').style.display = 'block';
+                    // Mostrar sección de gráficos
+                    document.getElementById('chartsSection').style.display = 'block';
+                    debugLog('✅ Gráficos actualizados');
+                } catch (error) {
+                    debugLog(`❌ Error actualizando gráficos: ${error.message}`);
+                }
             }
 
             // Mostrar mensaje
@@ -982,8 +1106,17 @@
             }
 
             // Mostrar indicador de procesamiento
-            showProcessing(show) {
-                document.getElementById('processingIndicator').style.display = show ? 'block' : 'none';
+            showProcessing(show, text = 'Procesando...') {
+                const indicator = document.getElementById('processingIndicator');
+                indicator.style.display = show ? 'block' : 'none';
+                
+                if (show) {
+                    this.updateProcessingText(text);
+                }
+            }
+            
+            updateProcessingText(text) {
+                document.getElementById('processingText').textContent = text;
             }
 
             // Encontrar duplicados
@@ -993,46 +1126,32 @@
 
             // Exportar a Excel
             exportToExcel() {
+                debugLog('📊 Iniciando exportación a Excel...');
+                
                 if (countedData.length === 0) {
                     alert('No hay datos para exportar');
                     return;
                 }
 
-                const wb = XLSX.utils.book_new();
-                
-                // Hoja de resumen
-                const summary = [
-                    ['Métrica', 'Valor'],
-                    ['Fecha del Reporte', new Date().toLocaleString()],
-                    ['Total Pallets Digitados', countedData.length],
-                    ['Pallets Exactos', countedData.filter(item => item.difference === 0).length],
-                    ['Pallets Sobrantes', countedData.filter(item => item.difference > 0).length],
-                    ['Pallets Faltantes', countedData.filter(item => item.difference < 0).length],
-                    ['Pallets No Encontrados', countedData.filter(item => item.systemQuantity === null).length]
-                ];
-                
-                const summaryWs = XLSX.utils.aoa_to_sheet(summary);
-                XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
+                try {
+                    const wb = XLSX.utils.book_new();
+                    
+                    // Hoja de resumen
+                    const summary = [
+                        ['Métrica', 'Valor'],
+                        ['Fecha del Reporte', new Date().toLocaleString()],
+                        ['Total Pallets Digitados', countedData.length],
+                        ['Pallets Exactos', countedData.filter(item => item.difference === 0).length],
+                        ['Pallets Sobrantes', countedData.filter(item => item.difference > 0).length],
+                        ['Pallets Faltantes', countedData.filter(item => item.difference < 0).length],
+                        ['Pallets No Encontrados', countedData.filter(item => item.systemQuantity === null).length]
+                    ];
+                    
+                    const summaryWs = XLSX.utils.aoa_to_sheet(summary);
+                    XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
 
-                // Hoja de datos completos
-                const fullData = countedData.map(item => ({
-                    'Tablilla': item.tablilla,
-                    'ID Pallet': item.palletId,
-                    'Almacén': item.warehouse,
-                    'Código': item.code,
-                    'Producto': item.name,
-                    'Cantidad Contada': item.countedQuantity,
-                    'Inventario Sistema': item.systemQuantity,
-                    'Diferencia': item.difference
-                }));
-                
-                const dataWs = XLSX.utils.json_to_sheet(fullData);
-                XLSX.utils.book_append_sheet(wb, dataWs, 'Datos Completos');
-
-                // Hoja de discrepancias
-                const discrepancies = countedData.filter(item => item.difference !== 0);
-                if (discrepancies.length > 0) {
-                    const discWs = XLSX.utils.json_to_sheet(discrepancies.map(item => ({
+                    // Hoja de datos completos
+                    const fullData = countedData.map(item => ({
                         'Tablilla': item.tablilla,
                         'ID Pallet': item.palletId,
                         'Almacén': item.warehouse,
@@ -1041,171 +1160,297 @@
                         'Cantidad Contada': item.countedQuantity,
                         'Inventario Sistema': item.systemQuantity,
                         'Diferencia': item.difference
-                    })));
-                    XLSX.utils.book_append_sheet(wb, discWs, 'Discrepancias');
-                }
+                    }));
+                    
+                    const dataWs = XLSX.utils.json_to_sheet(fullData);
+                    XLSX.utils.book_append_sheet(wb, dataWs, 'Datos Completos');
 
-                // Descargar archivo
-                const fileName = `Inventario_Pro_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.xlsx`;
-                XLSX.writeFile(wb, fileName);
-                
-                this.showMessage('📊 Reporte Excel generado y descargado', 'success');
+                    // Hoja de discrepancias
+                    const discrepancies = countedData.filter(item => item.difference !== 0);
+                    if (discrepancies.length > 0) {
+                        const discWs = XLSX.utils.json_to_sheet(discrepancies.map(item => ({
+                            'Tablilla': item.tablilla,
+                            'ID Pallet': item.palletId,
+                            'Almacén': item.warehouse,
+                            'Código': item.code,
+                            'Producto': item.name,
+                            'Cantidad Contada': item.countedQuantity,
+                            'Inventario Sistema': item.systemQuantity,
+                            'Diferencia': item.difference
+                        })));
+                        XLSX.utils.book_append_sheet(wb, discWs, 'Discrepancias');
+                    }
+
+                    // Descargar archivo
+                    const fileName = `Inventario_Pro_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.xlsx`;
+                    XLSX.writeFile(wb, fileName);
+                    
+                    this.showMessage('📊 Reporte Excel generado y descargado', 'success');
+                    debugLog(`✅ Excel exportado: ${fileName}`);
+                } catch (error) {
+                    debugLog(`❌ Error exportando Excel: ${error.message}`);
+                    this.showMessage(`❌ Error exportando: ${error.message}`, 'error');
+                }
             }
         }
 
         // Instancia global de la aplicación
         let app;
 
-                 // Funciones globales
-         function showFileInfo() {
-             const fileInput = document.getElementById('inventoryFile');
-             const file = fileInput.files[0];
-             
-             if (file) {
-                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                 const fileInfo = document.getElementById('fileInfo');
-                 const fileDetails = document.getElementById('fileDetails');
-                 
-                 fileDetails.textContent = `Archivo: ${file.name} (${fileSizeMB} MB)`;
-                 fileInfo.style.display = 'block';
-                 
-                 if (file.size > 50 * 1024 * 1024) {
-                     fileInfo.className = 'alert alert-warning';
-                     fileDetails.innerHTML = `<strong>⚠️ Archivo muy grande:</strong> ${file.name} (${fileSizeMB} MB) - Límite: 50MB`;
-                 } else if (file.size > 10 * 1024 * 1024) {
-                     fileInfo.className = 'alert alert-warning';
-                     fileDetails.innerHTML = `<strong>📁 Archivo grande:</strong> ${file.name} (${fileSizeMB} MB) - Procesamiento optimizado activado`;
-                 } else {
-                     fileInfo.className = 'alert alert-info';
-                     fileDetails.innerHTML = `<strong>📁 Archivo:</strong> ${file.name} (${fileSizeMB} MB) - Listo para procesar`;
-                 }
-             }
-         }
+        // Funciones globales con manejo de errores robusto
+        function showFileInfo() {
+            try {
+                const fileInput = document.getElementById('inventoryFile');
+                const file = fileInput.files[0];
+                
+                if (file) {
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    const fileInfo = document.getElementById('fileInfo');
+                    const fileDetails = document.getElementById('fileDetails');
+                    
+                    debugLog(`📁 Archivo seleccionado: ${file.name} (${fileSizeMB} MB)`);
+                    
+                    if (file.size > 50 * 1024 * 1024) {
+                        fileInfo.className = 'alert alert-danger';
+                        fileDetails.innerHTML = `<strong>❌ Archivo muy grande:</strong> ${file.name} (${fileSizeMB} MB) - Límite: 50MB`;
+                        document.getElementById('loadButton').disabled = true;
+                    } else if (file.size > 10 * 1024 * 1024) {
+                        fileInfo.className = 'alert alert-warning';
+                        fileDetails.innerHTML = `<strong>⚠️ Archivo grande:</strong> ${file.name} (${fileSizeMB} MB) - Procesamiento optimizado`;
+                        document.getElementById('loadButton').disabled = false;
+                    } else {
+                        fileInfo.className = 'alert alert-success';
+                        fileDetails.innerHTML = `<strong>✅ Archivo:</strong> ${file.name} (${fileSizeMB} MB) - Listo para procesar`;
+                        document.getElementById('loadButton').disabled = false;
+                    }
+                    
+                    fileInfo.style.display = 'block';
+                }
+            } catch (error) {
+                debugLog(`❌ Error mostrando info de archivo: ${error.message}`);
+            }
+        }
 
-         function loadInventory() {
-             app.loadInventory();
-         }
+        function loadInventory() {
+            try {
+                debugLog('🚀 Función loadInventory llamada');
+                if (app) {
+                    app.loadInventory();
+                } else {
+                    debugLog('❌ App no inicializada');
+                    alert('Error: Aplicación no inicializada. Recarga la página.');
+                }
+            } catch (error) {
+                debugLog(`❌ Error en loadInventory: ${error.message}`);
+                alert(`Error: ${error.message}`);
+            }
+        }
 
         function addPallet() {
-            app.addPallet();
+            try {
+                if (app) {
+                    app.addPallet();
+                } else {
+                    alert('Error: Aplicación no inicializada');
+                }
+            } catch (error) {
+                debugLog(`❌ Error agregando pallet: ${error.message}`);
+                alert(`Error: ${error.message}`);
+            }
         }
 
         function handleDuplicate(action) {
-            const modal = document.getElementById('duplicateModal');
-            const data = window.tempDuplicateData;
-            
-            if (action === 'replace') {
-                app.processPallet(data.tablilla, data.palletId, data.quantity, data.existingIndex);
-            } else if (action === 'add') {
-                app.processPallet(data.tablilla, data.palletId, data.quantity);
+            try {
+                const modal = document.getElementById('duplicateModal');
+                const data = window.tempDuplicateData;
+                
+                if (action === 'replace') {
+                    app.processPallet(data.tablilla, data.palletId, data.quantity, data.existingIndex);
+                } else if (action === 'add') {
+                    app.processPallet(data.tablilla, data.palletId, data.quantity);
+                }
+                
+                modal.style.display = 'none';
+                delete window.tempDuplicateData;
+            } catch (error) {
+                debugLog(`❌ Error manejando duplicado: ${error.message}`);
             }
-            
-            modal.style.display = 'none';
-            delete window.tempDuplicateData;
         }
 
         function clearAll() {
-            if (confirm('¿Estás seguro de que quieres limpiar todos los datos?')) {
-                countedData = [];
-                app.updateStats();
-                app.updateTable();
-                app.updateCharts();
-                document.getElementById('chartsSection').style.display = 'none';
-                app.showMessage('🗑️ Todos los datos han sido limpiados', 'info');
+            try {
+                if (confirm('¿Estás seguro de que quieres limpiar todos los datos?')) {
+                    countedData = [];
+                    app.updateStats();
+                    app.updateTable();
+                    app.updateCharts();
+                    document.getElementById('chartsSection').style.display = 'none';
+                    app.showMessage('🗑️ Todos los datos han sido limpiados', 'info');
+                    debugLog('🗑️ Datos limpiados');
+                }
+            } catch (error) {
+                debugLog(`❌ Error limpiando datos: ${error.message}`);
             }
         }
 
         function exportToExcel() {
-            app.exportToExcel();
+            try {
+                app.exportToExcel();
+            } catch (error) {
+                debugLog(`❌ Error exportando: ${error.message}`);
+            }
         }
 
         function toggleCharts() {
-            const chartsSection = document.getElementById('chartsSection');
-            const isVisible = chartsSection.style.display !== 'none';
-            chartsSection.style.display = isVisible ? 'none' : 'block';
-            
-            if (!isVisible) {
-                app.updateCharts();
+            try {
+                const chartsSection = document.getElementById('chartsSection');
+                const isVisible = chartsSection.style.display !== 'none';
+                chartsSection.style.display = isVisible ? 'none' : 'block';
+                
+                if (!isVisible) {
+                    app.updateCharts();
+                }
+            } catch (error) {
+                debugLog(`❌ Error toggling charts: ${error.message}`);
             }
         }
 
         function filterTable() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('statusFilter').value;
-            const rows = document.querySelectorAll('#resultsTableBody tr');
+            try {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const statusFilter = document.getElementById('statusFilter').value;
+                const rows = document.querySelectorAll('#resultsTableBody tr');
 
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                const matchesSearch = text.includes(searchTerm);
-                
-                let matchesStatus = true;
-                if (statusFilter) {
-                    matchesStatus = row.classList.contains(`row-${statusFilter}`);
-                }
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    const matchesSearch = text.includes(searchTerm);
+                    
+                    let matchesStatus = true;
+                    if (statusFilter) {
+                        matchesStatus = row.classList.contains(`row-${statusFilter}`);
+                    }
 
-                row.style.display = matchesSearch && matchesStatus ? '' : 'none';
-            });
+                    row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+                });
+            } catch (error) {
+                debugLog(`❌ Error filtrando tabla: ${error.message}`);
+            }
         }
 
         function editItem(index) {
-            // Implementar edición inline
-            const item = countedData[index];
-            const newQuantity = prompt(`Editar cantidad para ${item.palletId}:`, item.countedQuantity);
-            
-            if (newQuantity !== null && !isNaN(newQuantity)) {
-                const quantity = parseInt(newQuantity);
-                const inventoryInfo = inventoryData.find(inv => inv.id.toLowerCase() === item.palletId.toLowerCase());
+            try {
+                const item = countedData[index];
+                const newQuantity = prompt(`Editar cantidad para ${item.palletId}:`, item.countedQuantity);
                 
-                item.countedQuantity = quantity;
-                item.difference = quantity - (inventoryInfo ? inventoryInfo.quantity : 0);
-                
-                app.updateStats();
-                app.updateTable();
-                app.updateCharts();
-                app.showMessage(`✏️ Pallet ${item.palletId} editado`, 'info');
+                if (newQuantity !== null && !isNaN(newQuantity)) {
+                    const quantity = parseInt(newQuantity);
+                    const inventoryInfo = inventoryData.find(inv => inv.id.toLowerCase() === item.palletId.toLowerCase());
+                    
+                    item.countedQuantity = quantity;
+                    item.difference = quantity - (inventoryInfo ? inventoryInfo.quantity : 0);
+                    
+                    app.updateStats();
+                    app.updateTable();
+                    app.updateCharts();
+                    app.showMessage(`✏️ Pallet ${item.palletId} editado`, 'info');
+                    debugLog(`✏️ Pallet editado: ${item.palletId}`);
+                }
+            } catch (error) {
+                debugLog(`❌ Error editando item: ${error.message}`);
             }
         }
 
         function deleteItem(index) {
-            if (confirm(`¿Eliminar el pallet ${countedData[index].palletId}?`)) {
-                const deletedId = countedData[index].palletId;
-                countedData.splice(index, 1);
-                
-                app.updateStats();
-                app.updateTable();
-                app.updateCharts();
-                app.showMessage(`🗑️ Pallet ${deletedId} eliminado`, 'info');
+            try {
+                if (confirm(`¿Eliminar el pallet ${countedData[index].palletId}?`)) {
+                    const deletedId = countedData[index].palletId;
+                    countedData.splice(index, 1);
+                    
+                    app.updateStats();
+                    app.updateTable();
+                    app.updateCharts();
+                    app.showMessage(`🗑️ Pallet ${deletedId} eliminado`, 'info');
+                    debugLog(`🗑️ Pallet eliminado: ${deletedId}`);
+                }
+            } catch (error) {
+                debugLog(`❌ Error eliminando item: ${error.message}`);
             }
         }
 
         function editSelected() {
-            const checkboxes = document.querySelectorAll('#resultsTableBody input[type="checkbox"]:checked');
-            if (checkboxes.length === 0) {
-                alert('Selecciona al menos un registro para editar');
-                return;
+            try {
+                const checkboxes = document.querySelectorAll('#resultsTableBody input[type="checkbox"]:checked');
+                if (checkboxes.length === 0) {
+                    alert('Selecciona al menos un registro para editar');
+                    return;
+                }
+                
+                if (checkboxes.length > 1) {
+                    alert('Selecciona solo un registro para editar');
+                    return;
+                }
+                
+                const index = parseInt(checkboxes[0].getAttribute('data-index'));
+                editItem(index);
+            } catch (error) {
+                debugLog(`❌ Error editando seleccionado: ${error.message}`);
             }
-            
-            if (checkboxes.length > 1) {
-                alert('Selecciona solo un registro para editar');
-                return;
-            }
-            
-            const index = parseInt(checkboxes[0].getAttribute('data-index'));
-            editItem(index);
         }
 
         // Inicializar aplicación cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
-            app = new InventoryApp();
-            
-            // Cerrar modal al hacer clic fuera
-            document.getElementById('duplicateModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.style.display = 'none';
+            try {
+                debugLog('🚀 DOM cargado, inicializando aplicación...');
+                
+                // Verificar dependencias
+                if (typeof XLSX === 'undefined') {
+                    debugLog('❌ SheetJS no cargado');
+                    alert('Error: Librería Excel no cargada. Verifica tu conexión a internet.');
+                    return;
                 }
-            });
-            
-            console.log('🚀 Visor de Inventario Pro - Web App inicializado');
+                
+                if (typeof Chart === 'undefined') {
+                    debugLog('❌ Chart.js no cargado');
+                    alert('Error: Librería de gráficos no cargada. Verifica tu conexión a internet.');
+                    return;
+                }
+                
+                debugLog('✅ Dependencias verificadas');
+                
+                app = new InventoryApp();
+                
+                // Cerrar modal al hacer clic fuera
+                document.getElementById('duplicateModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+                
+                debugLog('🎯 Aplicación completamente inicializada');
+                
+                // Mostrar mensaje de bienvenida
+                setTimeout(() => {
+                    if (app) {
+                        app.showMessage('🚀 Aplicación lista - Selecciona un archivo Excel para comenzar', 'info');
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                debugLog(`❌ Error crítico inicializando: ${error.message}`);
+                console.error('Error completo:', error);
+                alert(`Error crítico: ${error.message}\nRevisa la consola para más detalles.`);
+            }
+        });
+
+        // Manejo global de errores
+        window.addEventListener('error', function(e) {
+            debugLog(`❌ Error global: ${e.message} en ${e.filename}:${e.lineno}`);
+            console.error('Error global:', e);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            debugLog(`❌ Promise rechazada: ${e.reason}`);
+            console.error('Promise rejection:', e);
         });
     </script>
 </body>

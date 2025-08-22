@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 Análisis Histórico de Inventarios</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Date Adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- SheetJS para Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --error-color: #e74c3c;
+            --info-color: #3498db;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            margin: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .upload-section {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .analysis-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .analysis-card h4 {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            color: var(--primary-color);
+        }
+
+        .analysis-card canvas {
+            flex: 1;
+            max-height: 320px;
+        }
+
+        .metric-card-historical {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            border-left: 4px solid var(--primary-color);
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .metric-value-historical {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            line-height: 1;
+        }
+
+        .file-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--info-color);
+        }
+
+        .file-item.processed {
+            border-left-color: var(--success-color);
+        }
+
+        .file-item.error {
+            border-left-color: var(--error-color);
+        }
+
+        .controls-section {
+            background: linear-gradient(135deg, #e8f5e8, #d4edda);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .trend-indicator {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .trend-up { color: var(--success-color); }
+        .trend-down { color: var(--error-color); }
+        .trend-stable { color: var(--info-color); }
+
+        @media (max-width: 768px) {
+            .analysis-card {
+                height: 300px;
+            }
+            
+            .analysis-card canvas {
+                max-height: 220px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> Análisis Histórico de Inventarios</h1>
+            <p class="mb-0">Sistema Avanzado de Análisis Temporal y Tendencias</p>
+            <small>🔍 Analiza múltiples reportes Excel para identificar patrones y tendencias</small>
+        </div>
+
+        <!-- Navigation -->
+        <div class="text-center mb-4">
+            <a href="index.html" class="btn btn-outline-primary me-2">
+                <i class="fas fa-keyboard"></i> Digitación Rápida
+            </a>
+            <a href="historical_analysis.html" class="btn btn-primary">
+                <i class="fas fa-chart-line"></i> Análisis Histórico
+            </a>
+            <a href="generate_test_data.html" class="btn btn-outline-secondary">
+                <i class="fas fa-database"></i> Generar Datos
+            </a>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="upload-section">
+            <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Reportes Históricos</h3>
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <input type="file" class="form-control mb-3" id="historicalFiles" accept=".xlsx,.xls" multiple required>
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="loadHistoricalData()">
+                            <i class="fas fa-cloud-upload-alt"></i> Analizar Reportes Históricos
+                        </button>
+                    </div>
+                    <div class="text-muted text-center mt-2">
+                        <small><i class="fas fa-info-circle"></i> Selecciona múltiples archivos Excel de reportes diarios/semanales</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Files List -->
+        <div id="filesSection" style="display: none;">
+            <h4><i class="fas fa-files-o"></i> Archivos Cargados</h4>
+            <div id="filesList"></div>
+        </div>
+
+        <!-- Controls Section -->
+        <div id="controlsSection" class="controls-section" style="display: none;">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">📅 Rango de Fechas:</label>
+                    <div class="row">
+                        <div class="col-6">
+                            <input type="date" class="form-control" id="startDate">
+                        </div>
+                        <div class="col-6">
+                            <input type="date" class="form-control" id="endDate">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">🏢 Almacenes:</label>
+                    <select class="form-control" id="warehouseFilter" multiple>
+                        <!-- Opciones se llenan dinámicamente -->
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">📊 Tipo de Análisis:</label>
+                    <select class="form-control" id="analysisType">
+                        <option value="precision">Precisión por Tiempo</option>
+                        <option value="products">Análisis por Producto</option>
+                        <option value="warehouses">Análisis por Almacén</option>
+                        <option value="operators">Análisis por Operador</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button class="btn btn-success" onclick="generateAnalysis()">
+                    <i class="fas fa-analytics"></i> Generar Análisis
+                </button>
+            </div>
+        </div>
+
+        <!-- Historical Metrics -->
+        <div id="historicalMetrics" class="row mb-4" style="display: none;">
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="metric-value-historical" id="totalReports">0</div>
+                    <div class="text-muted">Reportes</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="metric-value-historical" id="totalDays">0</div>
+                    <div class="text-muted">Días</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="metric-value-historical" id="avgPrecision">0%</div>
+                    <div class="text-muted">Precisión Prom.</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="metric-value-historical" id="totalProducts">0</div>
+                    <div class="text-muted">Productos</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="metric-value-historical" id="problemProducts">0</div>
+                    <div class="text-muted">Problemáticos</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="metric-card-historical">
+                    <div class="trend-indicator" id="precisionTrend">--</div>
+                    <div class="text-muted">Tendencia</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Charts -->
+        <div id="analysisSection" style="display: none;">
+            <!-- Tendencias Temporales -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="analysis-card">
+                        <h4><i class="fas fa-line-chart"></i> Tendencia de Precisión por Tiempo</h4>
+                        <canvas id="precisionTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Análisis Comparativo -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="analysis-card">
+                        <h4><i class="fas fa-chart-area"></i> Evolución de Discrepancias</h4>
+                        <canvas id="discrepancyTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="analysis-card">
+                        <h4><i class="fas fa-chart-bar"></i> Performance por Almacén</h4>
+                        <canvas id="warehousePerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Análisis Detallado -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="analysis-card">
+                        <h4><i class="fas fa-chart-scatter"></i> Productos Problemáticos</h4>
+                        <canvas id="productAnalysisChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="analysis-card">
+                        <h4><i class="fas fa-chart-pie"></i> Distribución por Operador</h4>
+                        <canvas id="operatorAnalysisChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights and Recommendations -->
+        <div id="insightsSection" class="mt-4" style="display: none;">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0"><i class="fas fa-lightbulb"></i> Insights y Recomendaciones</h4>
+                </div>
+                <div class="card-body">
+                    <div id="insightsContent">
+                        <!-- Insights se generan automáticamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Section -->
+        <div id="exportSection" class="text-center mt-4" style="display: none;">
+            <button class="btn btn-success btn-lg me-3" onclick="exportHistoricalReport()">
+                <i class="fas fa-download"></i> Descargar Reporte Histórico
+            </button>
+            <button class="btn btn-info btn-lg" onclick="exportInsights()">
+                <i class="fas fa-file-pdf"></i> Exportar Insights
+            </button>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Variables globales para análisis histórico
+        let historicalData = [];
+        let processedReports = [];
+        let analysisCharts = {};
+        let insights = [];
+
+        // Clase principal para análisis histórico
+        class HistoricalAnalysis {
+            constructor() {
+                this.initializeCharts();
+                console.log('🚀 Sistema de Análisis Histórico inicializado');
+            }
+
+            // Cargar múltiples archivos Excel históricos
+            async loadHistoricalData() {
+                const fileInput = document.getElementById('historicalFiles');
+                const files = Array.from(fileInput.files);
+                
+                if (files.length === 0) {
+                    alert('Por favor selecciona al menos un archivo');
+                    return;
+                }
+
+                console.log(`📁 Procesando ${files.length} archivos históricos...`);
+                
+                const filesList = document.getElementById('filesList');
+                filesList.innerHTML = '';
+                historicalData = [];
+                processedReports = [];
+
+                // Procesar cada archivo
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileItem = this.createFileItem(file, i);
+                    filesList.appendChild(fileItem);
+
+                    try {
+                        const reportData = await this.processReportFile(file, i);
+                        if (reportData) {
+                            processedReports.push(reportData);
+                            this.markFileAsProcessed(i, true);
+                        }
+                    } catch (error) {
+                        console.error(`Error procesando ${file.name}:`, error);
+                        this.markFileAsProcessed(i, false, error.message);
+                    }
+                }
+
+                if (processedReports.length > 0) {
+                    this.consolidateHistoricalData();
+                    this.showAnalysisControls();
+                    this.updateHistoricalMetrics();
+                    this.generateInitialInsights();
+                }
+            }
+
+            // Procesar archivo individual de reporte
+            async processReportFile(file, index) {
+                console.log(`🔄 Procesando archivo ${index + 1}: ${file.name}`);
+
+                try {
+                    const data = await file.arrayBuffer();
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Buscar hoja de "Datos Completos"
+                    let sheetName = 'Datos Completos';
+                    if (!workbook.SheetNames.includes(sheetName)) {
+                        // Fallback a primera hoja
+                        sheetName = workbook.SheetNames[0];
+                    }
+
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        throw new Error('Archivo vacío o sin datos');
+                    }
+
+                    // Extraer fecha del nombre del archivo o usar fecha de modificación
+                    const reportDate = this.extractDateFromFilename(file.name) || new Date(file.lastModified);
+
+                    // Procesar datos del reporte
+                    const reportData = {
+                        fileName: file.name,
+                        reportDate: reportDate,
+                        totalPallets: jsonData.length,
+                        records: jsonData.map(row => ({
+                            tablilla: row['Tablilla'] || row['numero_tablilla'] || '',
+                            palletId: row['ID Pallet'] || row['id_pallet'] || '',
+                            warehouse: row['Almacén'] || row['almacen'] || '',
+                            code: row['Código'] || row['codigo_articulo'] || '',
+                            product: row['Producto'] || row['nombre_producto'] || '',
+                            countedQuantity: parseInt(row['Cantidad Contada'] || row['cantidad_contada']) || 0,
+                            systemQuantity: parseInt(row['Inventario Sistema'] || row['inv_sistema']) || 0,
+                            difference: parseInt(row['Diferencia'] || row['diferencia']) || 0
+                        }))
+                    };
+
+                    // Calcular métricas del reporte
+                    reportData.exactCount = reportData.records.filter(r => r.difference === 0).length;
+                    reportData.overCount = reportData.records.filter(r => r.difference > 0).length;
+                    reportData.underCount = reportData.records.filter(r => r.difference < 0).length;
+                    reportData.precision = reportData.totalPallets > 0 ? 
+                        (reportData.exactCount / reportData.totalPallets * 100).toFixed(2) : 0;
+
+                    console.log(`✅ Archivo procesado: ${reportData.totalPallets} registros, ${reportData.precision}% precisión`);
+                    return reportData;
+
+                } catch (error) {
+                    console.error(`❌ Error procesando ${file.name}:`, error);
+                    throw error;
+                }
+            }
+
+            // Extraer fecha del nombre del archivo
+            extractDateFromFilename(filename) {
+                // Buscar patrones de fecha en el nombre del archivo
+                const patterns = [
+                    /(\d{4})(\d{2})(\d{2})/,           // YYYYMMDD
+                    /(\d{4})-(\d{2})-(\d{2})/,        // YYYY-MM-DD
+                    /(\d{2})(\d{2})(\d{4})/,          // DDMMYYYY
+                    /(\d{2})-(\d{2})-(\d{4})/         // DD-MM-YYYY
+                ];
+
+                for (const pattern of patterns) {
+                    const match = filename.match(pattern);
+                    if (match) {
+                        if (pattern.toString().includes('4')) {
+                            // Formato YYYY
+                            return new Date(match[1], match[2] - 1, match[3]);
+                        } else {
+                            // Formato DD/MM/YYYY
+                            return new Date(match[3], match[2] - 1, match[1]);
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            // Crear elemento visual para archivo
+            createFileItem(file, index) {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.id = `file-${index}`;
+                
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                
+                fileItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${file.name}</strong>
+                            <br><small class="text-muted">${fileSizeMB} MB - ${file.lastModified ? new Date(file.lastModified).toLocaleDateString() : 'Sin fecha'}</small>
+                        </div>
+                        <div id="status-${index}">
+                            <i class="fas fa-clock text-warning"></i> Procesando...
+                        </div>
+                    </div>
+                `;
+
+                return fileItem;
+            }
+
+            // Marcar archivo como procesado
+            markFileAsProcessed(index, success, errorMessage = '') {
+                const fileItem = document.getElementById(`file-${index}`);
+                const statusDiv = document.getElementById(`status-${index}`);
+                
+                if (success) {
+                    fileItem.classList.add('processed');
+                    statusDiv.innerHTML = '<i class="fas fa-check text-success"></i> Procesado';
+                } else {
+                    fileItem.classList.add('error');
+                    statusDiv.innerHTML = `<i class="fas fa-times text-danger"></i> Error: ${errorMessage}`;
+                }
+            }
+
+            // Consolidar datos históricos
+            consolidateHistoricalData() {
+                console.log('🔄 Consolidando datos históricos...');
+                
+                // Ordenar reportes por fecha
+                processedReports.sort((a, b) => new Date(a.reportDate) - new Date(b.reportDate));
+                
+                // Crear estructura consolidada
+                historicalData = processedReports.map(report => ({
+                    date: report.reportDate,
+                    fileName: report.fileName,
+                    metrics: {
+                        total: report.totalPallets,
+                        exact: report.exactCount,
+                        over: report.overCount,
+                        under: report.underCount,
+                        precision: parseFloat(report.precision)
+                    },
+                    records: report.records
+                }));
+
+                console.log(`✅ ${historicalData.length} reportes consolidados`);
+            }
+
+            // Mostrar controles de análisis
+            showAnalysisControls() {
+                document.getElementById('filesSection').style.display = 'block';
+                document.getElementById('controlsSection').style.display = 'block';
+                
+                // Configurar rangos de fechas
+                const dates = historicalData.map(d => new Date(d.date));
+                const minDate = new Date(Math.min(...dates));
+                const maxDate = new Date(Math.max(...dates));
+                
+                document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
+                document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
+                
+                // Llenar filtro de almacenes
+                const allWarehouses = [...new Set(
+                    historicalData.flatMap(d => d.records.map(r => r.warehouse))
+                )].filter(w => w && w !== 'N/A');
+                
+                const warehouseSelect = document.getElementById('warehouseFilter');
+                warehouseSelect.innerHTML = allWarehouses.map(w => 
+                    `<option value="${w}" selected>${w}</option>`
+                ).join('');
+            }
+
+            // Actualizar métricas históricas
+            updateHistoricalMetrics() {
+                const totalReports = historicalData.length;
+                const totalDays = new Set(historicalData.map(d => d.date.toDateString())).size;
+                const avgPrecision = (historicalData.reduce((sum, d) => sum + d.metrics.precision, 0) / totalReports).toFixed(1);
+                
+                const allProducts = new Set(historicalData.flatMap(d => d.records.map(r => r.palletId)));
+                const totalProducts = allProducts.size;
+                
+                // Productos problemáticos (con alta variabilidad)
+                const productVariability = this.calculateProductVariability();
+                const problemProducts = Object.values(productVariability).filter(v => v.stdDev > 5).length;
+                
+                // Tendencia de precisión
+                const precisionTrend = this.calculatePrecisionTrend();
+                
+                document.getElementById('totalReports').textContent = totalReports;
+                document.getElementById('totalDays').textContent = totalDays;
+                document.getElementById('avgPrecision').textContent = avgPrecision + '%';
+                document.getElementById('totalProducts').textContent = totalProducts;
+                document.getElementById('problemProducts').textContent = problemProducts;
+                
+                const trendElement = document.getElementById('precisionTrend');
+                if (precisionTrend > 0) {
+                    trendElement.textContent = `+${precisionTrend.toFixed(1)}%`;
+                    trendElement.className = 'trend-indicator trend-up';
+                } else if (precisionTrend < 0) {
+                    trendElement.textContent = `${precisionTrend.toFixed(1)}%`;
+                    trendElement.className = 'trend-indicator trend-down';
+                } else {
+                    trendElement.textContent = 'Estable';
+                    trendElement.className = 'trend-indicator trend-stable';
+                }
+
+                document.getElementById('historicalMetrics').style.display = 'block';
+            }
+
+            // Calcular variabilidad por producto
+            calculateProductVariability() {
+                const productStats = {};
+                
+                historicalData.forEach(report => {
+                    report.records.forEach(record => {
+                        if (!productStats[record.palletId]) {
+                            productStats[record.palletId] = {
+                                differences: [],
+                                name: record.product,
+                                warehouse: record.warehouse
+                            };
+                        }
+                        productStats[record.palletId].differences.push(record.difference);
+                    });
+                });
+
+                // Calcular estadísticas por producto
+                Object.keys(productStats).forEach(palletId => {
+                    const differences = productStats[palletId].differences;
+                    const mean = differences.reduce((a, b) => a + b, 0) / differences.length;
+                    const variance = differences.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / differences.length;
+                    const stdDev = Math.sqrt(variance);
+                    
+                    productStats[palletId].mean = mean;
+                    productStats[palletId].stdDev = stdDev;
+                    productStats[palletId].count = differences.length;
+                });
+
+                return productStats;
+            }
+
+            // Calcular tendencia de precisión
+            calculatePrecisionTrend() {
+                if (historicalData.length < 2) return 0;
+                
+                const firstHalf = historicalData.slice(0, Math.floor(historicalData.length / 2));
+                const secondHalf = historicalData.slice(Math.floor(historicalData.length / 2));
+                
+                const firstAvg = firstHalf.reduce((sum, d) => sum + d.metrics.precision, 0) / firstHalf.length;
+                const secondAvg = secondHalf.reduce((sum, d) => sum + d.metrics.precision, 0) / secondHalf.length;
+                
+                return secondAvg - firstAvg;
+            }
+
+            // Inicializar gráficos de análisis
+            initializeCharts() {
+                // Configuración base para todos los gráficos
+                const baseOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            titleFont: { size: 12 },
+                            bodyFont: { size: 11 }
+                        }
+                    }
+                };
+
+                // Gráfico de tendencia de precisión
+                const ctx1 = document.getElementById('precisionTrendChart').getContext('2d');
+                analysisCharts.precisionTrend = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Precisión (%)',
+                            data: [],
+                            borderColor: 'rgb(102, 126, 234)',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        ...baseOptions,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day'
+                                },
+                                ticks: { font: { size: 10 } }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { 
+                                    font: { size: 10 },
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico de evolución de discrepancias
+                const ctx2 = document.getElementById('discrepancyTrendChart').getContext('2d');
+                analysisCharts.discrepancyTrend = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Sobrantes',
+                                data: [],
+                                borderColor: '#f39c12',
+                                backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Faltantes',
+                                data: [],
+                                borderColor: '#e74c3c',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        ...baseOptions,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { unit: 'day' },
+                                ticks: { font: { size: 10 } }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: { font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico de performance por almacén
+                const ctx3 = document.getElementById('warehousePerformanceChart').getContext('2d');
+                analysisCharts.warehousePerformance = new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Precisión Promedio (%)',
+                            data: [],
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        ...baseOptions,
+                        scales: {
+                            x: { ticks: { font: { size: 10 } } },
+                            y: { 
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { 
+                                    font: { size: 10 },
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico de análisis de productos
+                const ctx4 = document.getElementById('productAnalysisChart').getContext('2d');
+                analysisCharts.productAnalysis = new Chart(ctx4, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Productos',
+                            data: [],
+                            backgroundColor: 'rgba(231, 76, 60, 0.6)',
+                            borderColor: 'rgba(231, 76, 60, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        ...baseOptions,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Frecuencia de Conteo',
+                                    font: { size: 10 }
+                                },
+                                ticks: { font: { size: 10 } }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Variabilidad (Desv. Estándar)',
+                                    font: { size: 10 }
+                                },
+                                ticks: { font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico de análisis por operador
+                const ctx5 = document.getElementById('operatorAnalysisChart').getContext('2d');
+                analysisCharts.operatorAnalysis = new Chart(ctx5, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#3498db', '#e74c3c', '#f39c12', '#27ae60', 
+                                '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        ...baseOptions,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: { size: 10 },
+                                    boxWidth: 10
+                                }
+                            }
+                        }
+                    }
+                });
+
+                console.log('✅ Gráficos de análisis inicializados');
+            }
+
+            // Generar análisis según tipo seleccionado
+            generateAnalysis() {
+                const analysisType = document.getElementById('analysisType').value;
+                const startDate = new Date(document.getElementById('startDate').value);
+                const endDate = new Date(document.getElementById('endDate').value);
+                
+                // Filtrar datos por rango de fechas
+                const filteredData = historicalData.filter(d => {
+                    const reportDate = new Date(d.date);
+                    return reportDate >= startDate && reportDate <= endDate;
+                });
+
+                if (filteredData.length === 0) {
+                    alert('No hay datos en el rango de fechas seleccionado');
+                    return;
+                }
+
+                console.log(`📊 Generando análisis tipo: ${analysisType}`);
+
+                switch (analysisType) {
+                    case 'precision':
+                        this.generatePrecisionAnalysis(filteredData);
+                        break;
+                    case 'products':
+                        this.generateProductAnalysis(filteredData);
+                        break;
+                    case 'warehouses':
+                        this.generateWarehouseAnalysis(filteredData);
+                        break;
+                    case 'operators':
+                        this.generateOperatorAnalysis(filteredData);
+                        break;
+                }
+
+                document.getElementById('analysisSection').style.display = 'block';
+                document.getElementById('insightsSection').style.display = 'block';
+                document.getElementById('exportSection').style.display = 'block';
+
+                // Scroll hacia análisis
+                setTimeout(() => {
+                    document.getElementById('analysisSection').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'nearest' 
+                    });
+                }, 100);
+            }
+
+            // Análisis de precisión temporal
+            generatePrecisionAnalysis(data) {
+                console.log('📈 Generando análisis de precisión temporal...');
+                
+                const labels = data.map(d => d.date);
+                const precisionData = data.map(d => d.metrics.precision);
+                const overData = data.map(d => d.metrics.over);
+                const underData = data.map(d => d.metrics.under);
+
+                // Actualizar gráfico de tendencia
+                analysisCharts.precisionTrend.data.labels = labels;
+                analysisCharts.precisionTrend.data.datasets[0].data = precisionData;
+                analysisCharts.precisionTrend.update();
+
+                // Actualizar gráfico de discrepancias
+                analysisCharts.discrepancyTrend.data.labels = labels;
+                analysisCharts.discrepancyTrend.data.datasets[0].data = overData;
+                analysisCharts.discrepancyTrend.data.datasets[1].data = underData;
+                analysisCharts.discrepancyTrend.update();
+
+                this.generatePrecisionInsights(data);
+            }
+
+            // Análisis por producto
+            generateProductAnalysis(data) {
+                console.log('🔍 Generando análisis por producto...');
+                
+                const productStats = this.calculateProductVariability();
+                
+                // Preparar datos para scatter plot
+                const scatterData = Object.entries(productStats).map(([palletId, stats]) => ({
+                    x: stats.count,
+                    y: stats.stdDev,
+                    palletId: palletId,
+                    name: stats.name
+                }));
+
+                analysisCharts.productAnalysis.data.datasets[0].data = scatterData;
+                analysisCharts.productAnalysis.update();
+
+                this.generateProductInsights(productStats);
+            }
+
+            // Análisis por almacén
+            generateWarehouseAnalysis(data) {
+                console.log('🏢 Generando análisis por almacén...');
+                
+                const warehouseStats = {};
+                
+                data.forEach(report => {
+                    report.records.forEach(record => {
+                        if (!warehouseStats[record.warehouse]) {
+                            warehouseStats[record.warehouse] = {
+                                total: 0,
+                                exact: 0,
+                                over: 0,
+                                under: 0
+                            };
+                        }
+                        
+                        warehouseStats[record.warehouse].total++;
+                        if (record.difference === 0) warehouseStats[record.warehouse].exact++;
+                        else if (record.difference > 0) warehouseStats[record.warehouse].over++;
+                        else warehouseStats[record.warehouse].under++;
+                    });
+                });
+
+                // Calcular precisión por almacén
+                const warehouseLabels = Object.keys(warehouseStats);
+                const warehousePrecision = warehouseLabels.map(w => {
+                    const stats = warehouseStats[w];
+                    return (stats.exact / stats.total * 100).toFixed(1);
+                });
+
+                analysisCharts.warehousePerformance.data.labels = warehouseLabels;
+                analysisCharts.warehousePerformance.data.datasets[0].data = warehousePrecision;
+                analysisCharts.warehousePerformance.update();
+
+                this.generateWarehouseInsights(warehouseStats);
+            }
+
+            // Análisis por operador
+            generateOperatorAnalysis(data) {
+                console.log('👥 Generando análisis por operador...');
+                
+                const operatorStats = {};
+                
+                data.forEach(report => {
+                    report.records.forEach(record => {
+                        const operator = record.tablilla || 'Sin Tablilla';
+                        operatorStats[operator] = (operatorStats[operator] || 0) + 1;
+                    });
+                });
+
+                const operatorLabels = Object.keys(operatorStats);
+                const operatorData = Object.values(operatorStats);
+
+                analysisCharts.operatorAnalysis.data.labels = operatorLabels;
+                analysisCharts.operatorAnalysis.data.datasets[0].data = operatorData;
+                analysisCharts.operatorAnalysis.update();
+
+                this.generateOperatorInsights(operatorStats);
+            }
+
+            // Generar insights automáticos
+            generatePrecisionInsights(data) {
+                insights = [];
+                
+                const avgPrecision = data.reduce((sum, d) => sum + d.metrics.precision, 0) / data.length;
+                const trend = this.calculatePrecisionTrend();
+                
+                if (avgPrecision >= 95) {
+                    insights.push({
+                        type: 'success',
+                        title: '🎯 Excelente Precisión',
+                        message: `La precisión promedio de ${avgPrecision.toFixed(1)}% supera el objetivo estándar del 95%.`
+                    });
+                } else if (avgPrecision >= 90) {
+                    insights.push({
+                        type: 'warning',
+                        title: '⚠️ Precisión Aceptable',
+                        message: `La precisión promedio de ${avgPrecision.toFixed(1)}% está cerca del objetivo. Revisar productos problemáticos.`
+                    });
+                } else {
+                    insights.push({
+                        type: 'error',
+                        title: '🚨 Precisión Crítica',
+                        message: `La precisión promedio de ${avgPrecision.toFixed(1)}% está por debajo del estándar. Acción inmediata requerida.`
+                    });
+                }
+
+                if (trend > 2) {
+                    insights.push({
+                        type: 'success',
+                        title: '📈 Tendencia Positiva',
+                        message: `La precisión ha mejorado ${trend.toFixed(1)}% en el período analizado.`
+                    });
+                } else if (trend < -2) {
+                    insights.push({
+                        type: 'warning',
+                        title: '📉 Tendencia Negativa',
+                        message: `La precisión ha disminuido ${Math.abs(trend).toFixed(1)}% en el período analizado.`
+                    });
+                }
+
+                this.displayInsights();
+            }
+
+            // Mostrar insights en la interfaz
+            displayInsights() {
+                const insightsContent = document.getElementById('insightsContent');
+                
+                if (insights.length === 0) {
+                    insightsContent.innerHTML = '<p class="text-muted">No hay insights disponibles.</p>';
+                    return;
+                }
+
+                insightsContent.innerHTML = insights.map(insight => `
+                    <div class="alert alert-${insight.type === 'error' ? 'danger' : insight.type} mb-3">
+                        <h5>${insight.title}</h5>
+                        <p class="mb-0">${insight.message}</p>
+                    </div>
+                `).join('');
+            }
+
+            // Exportar reporte histórico
+            exportHistoricalReport() {
+                if (historicalData.length === 0) {
+                    alert('No hay datos históricos para exportar');
+                    return;
+                }
+
+                console.log('📊 Exportando reporte histórico...');
+
+                const wb = XLSX.utils.book_new();
+                
+                // Hoja de resumen histórico
+                const summary = [
+                    ['Métrica', 'Valor'],
+                    ['Período Analizado', `${historicalData[0].date.toLocaleDateString()} - ${historicalData[historicalData.length-1].date.toLocaleDateString()}`],
+                    ['Total Reportes', historicalData.length],
+                    ['Total Días', new Set(historicalData.map(d => d.date.toDateString())).size],
+                    ['Precisión Promedio (%)', (historicalData.reduce((sum, d) => sum + d.metrics.precision, 0) / historicalData.length).toFixed(2)],
+                    ['Total Pallets Analizados', historicalData.reduce((sum, d) => sum + d.metrics.total, 0)],
+                    ['Productos Únicos', new Set(historicalData.flatMap(d => d.records.map(r => r.palletId))).size]
+                ];
+                
+                const summaryWs = XLSX.utils.aoa_to_sheet(summary);
+                XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen Histórico');
+
+                // Hoja de tendencias diarias
+                const dailyTrends = historicalData.map(d => ({
+                    'Fecha': d.date.toLocaleDateString(),
+                    'Archivo': d.fileName,
+                    'Total Pallets': d.metrics.total,
+                    'Exactos': d.metrics.exact,
+                    'Sobrantes': d.metrics.over,
+                    'Faltantes': d.metrics.under,
+                    'Precisión (%)': d.metrics.precision
+                }));
+                
+                const trendsWs = XLSX.utils.json_to_sheet(dailyTrends);
+                XLSX.utils.book_append_sheet(wb, trendsWs, 'Tendencias Diarias');
+
+                // Hoja de análisis por producto
+                const productStats = this.calculateProductVariability();
+                const productAnalysis = Object.entries(productStats).map(([palletId, stats]) => ({
+                    'ID Pallet': palletId,
+                    'Nombre Producto': stats.name,
+                    'Almacén': stats.warehouse,
+                    'Frecuencia Conteo': stats.count,
+                    'Diferencia Promedio': stats.mean.toFixed(2),
+                    'Desviación Estándar': stats.stdDev.toFixed(2),
+                    'Clasificación': stats.stdDev > 5 ? 'Problemático' : stats.stdDev > 2 ? 'Moderado' : 'Estable'
+                }));
+                
+                const productWs = XLSX.utils.json_to_sheet(productAnalysis);
+                XLSX.utils.book_append_sheet(wb, productWs, 'Análisis por Producto');
+
+                // Descargar archivo
+                const fileName = `Analisis_Historico_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                console.log(`✅ Reporte histórico exportado: ${fileName}`);
+            }
+        }
+
+        // Instancia global
+        let historicalApp;
+
+        // Funciones globales
+        function loadHistoricalData() {
+            historicalApp.loadHistoricalData();
+        }
+
+        function generateAnalysis() {
+            historicalApp.generateAnalysis();
+        }
+
+        function exportHistoricalReport() {
+            historicalApp.exportHistoricalReport();
+        }
+
+        function exportInsights() {
+            // Generar PDF con insights (implementación futura)
+            alert('Funcionalidad de exportar insights en desarrollo');
+        }
+
+        // Inicializar aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            historicalApp = new HistoricalAnalysis();
+            console.log('🚀 Análisis Histórico inicializado');
+        });
+    </script>
+</body>
+</html>

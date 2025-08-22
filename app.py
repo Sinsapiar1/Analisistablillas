@@ -217,6 +217,12 @@ def init_session_state():
 
 init_session_state()
 
+# Función para limpiar memoria en Streamlit Cloud
+def cleanup_memory():
+    """Limpia memoria para evitar problemas en Streamlit Cloud"""
+    import gc
+    gc.collect()
+
 # Funciones auxiliares mejoradas
 def cargar_inventario(archivo):
     """Carga y valida el archivo de inventario con mejor manejo de errores"""
@@ -490,67 +496,70 @@ def create_executive_dashboard():
     st.markdown('</div>', unsafe_allow_html=True)
 
 def generar_reporte_excel():
-    """Genera reporte Excel mejorado con análisis ejecutivo"""
+    """Genera reporte Excel mejorado con análisis ejecutivo - Optimizado para Streamlit Cloud"""
     if not st.session_state.conteo_fisico:
         return None
     
-    df_conteo = pd.DataFrame(st.session_state.conteo_fisico)
-    
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        workbook = writer.book
+    try:
+        df_conteo = pd.DataFrame(st.session_state.conteo_fisico)
         
-        # Formatos profesionales mejorados
-        title_format = workbook.add_format({
-            'bold': True, 'font_size': 18, 'font_color': '#2c3e50',
-            'align': 'center', 'bg_color': '#ecf0f1', 'border': 1
-        })
+        # Crear buffer de memoria optimizado
+        output = io.BytesIO()
         
-        header_format = workbook.add_format({
-            'bold': True, 'bg_color': '#3498db', 'font_color': 'white',
-            'border': 1, 'align': 'center', 'font_size': 12
-        })
+        # Usar openpyxl en lugar de xlsxwriter para mejor compatibilidad con Streamlit Cloud
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Hoja de resumen ejecutivo
+            stats = calcular_estadisticas_avanzadas()
+            
+            resumen_data = {
+                'KPI': [
+                    'Fecha del Análisis', 'Hora de Inicio', 'Duración de Sesión (min)',
+                    'Total Pallets Procesados', 'Pallets con Cantidad Exacta',
+                    'Pallets con Sobrantes', 'Pallets con Faltantes',
+                    'Pallets NO Encontrados', 'Precisión del Inventario (%)',
+                    'Eficiencia de Conteo (%)', 'Varianza Total', 'Diferencia Promedio'
+                ],
+                'Valor': [
+                    datetime.now().strftime("%Y-%m-%d"),
+                    st.session_state.session_stats['start_time'].strftime("%H:%M:%S"),
+                    round((datetime.now() - st.session_state.session_stats['start_time']).total_seconds() / 60, 1),
+                    stats['total'], stats['exactos'], stats['sobrantes'],
+                    stats['faltantes'], stats['no_encontrados'],
+                    round(stats['precision'], 2), round(stats['efficiency'], 2),
+                    round(stats['total_variance'], 2), round(stats['avg_difference'], 2)
+                ]
+            }
+            
+            df_resumen = pd.DataFrame(resumen_data)
+            df_resumen.to_excel(writer, sheet_name='Resumen Ejecutivo', index=False)
+            
+            # Hoja de datos completos
+            df_conteo_clean = df_conteo.copy()
+            # Limpiar datos para Excel
+            for col in df_conteo_clean.columns:
+                if df_conteo_clean[col].dtype == 'object':
+                    df_conteo_clean[col] = df_conteo_clean[col].astype(str)
+            
+            df_conteo_clean.to_excel(writer, sheet_name='Datos Completos', index=False)
+            
+            # Hoja de diferencias (solo registros con diferencias)
+            df_diferencias = df_conteo[df_conteo['diferencia'] != 0].copy()
+            if not df_diferencias.empty:
+                for col in df_diferencias.columns:
+                    if df_diferencias[col].dtype == 'object':
+                        df_diferencias[col] = df_diferencias[col].astype(str)
+                df_diferencias.to_excel(writer, sheet_name='Discrepancias', index=False)
         
-        # Hoja de resumen ejecutivo mejorado
-        stats = calcular_estadisticas_avanzadas()
+        # Asegurar que el buffer esté al inicio
+        output.seek(0)
+        return output.getvalue()  # Retornar bytes en lugar del objeto BytesIO
         
-        resumen_data = {
-            'KPI': [
-                'Fecha del Análisis', 'Hora de Inicio', 'Duración de Sesión (min)',
-                'Total Pallets Procesados', 'Pallets con Cantidad Exacta',
-                'Pallets con Sobrantes', 'Pallets con Faltantes',
-                'Pallets NO Encontrados', 'Precisión del Inventario (%)',
-                'Eficiencia de Conteo (%)', 'Varianza Total', 'Diferencia Promedio'
-            ],
-            'Valor': [
-                datetime.now().strftime("%Y-%m-%d"),
-                st.session_state.session_stats['start_time'].strftime("%H:%M:%S"),
-                round((datetime.now() - st.session_state.session_stats['start_time']).total_seconds() / 60, 1),
-                stats['total'], stats['exactos'], stats['sobrantes'],
-                stats['faltantes'], stats['no_encontrados'],
-                round(stats['precision'], 2), round(stats['efficiency'], 2),
-                round(stats['total_variance'], 2), round(stats['avg_difference'], 2)
-            ]
-        }
-        
-        df_resumen = pd.DataFrame(resumen_data)
-        df_resumen.to_excel(writer, sheet_name='Resumen Ejecutivo', index=False, startrow=2)
-        
-        ws_resumen = writer.sheets['Resumen Ejecutivo']
-        ws_resumen.write('A1', 'ANÁLISIS EJECUTIVO DE INVENTARIO FÍSICO', title_format)
-        ws_resumen.set_column('A:A', 35)
-        ws_resumen.set_column('B:B', 20)
-        
-        # Hoja de datos completos
-        df_conteo.to_excel(writer, sheet_name='Datos Completos', index=False)
-        ws_datos = writer.sheets['Datos Completos']
-        
-        # Aplicar formato a headers
-        for col_num, value in enumerate(df_conteo.columns.values):
-            ws_datos.write(0, col_num, value, header_format)
-    
-    output.seek(0)
-    return output
+    except Exception as e:
+        st.error(f"Error generando reporte Excel: {str(e)}")
+        # Fallback: generar CSV simple
+        df_conteo = pd.DataFrame(st.session_state.conteo_fisico)
+        csv_output = df_conteo.to_csv(index=False)
+        return csv_output.encode('utf-8')
 
 # Función principal mejorada
 def main():
@@ -807,16 +816,45 @@ def main():
                         st.rerun()
                 
                 with col2:
-                    # Generar reporte Excel
-                    excel_file = generar_reporte_excel()
-                    if excel_file:
-                        st.download_button(
-                            label="📊 Descargar Excel",
-                            data=excel_file,
-                            file_name=f"Inventario_Pro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
+                    # Generar reporte Excel optimizado para Streamlit Cloud
+                    if st.button("📊 Generar Excel", use_container_width=True):
+                        try:
+                            with st.spinner("Generando reporte..."):
+                                excel_data = generar_reporte_excel()
+                                if excel_data:
+                                    # Determinar tipo de archivo basado en el contenido
+                                    if isinstance(excel_data, bytes) and excel_data.startswith(b'PK'):
+                                        # Es un archivo Excel válido
+                                        file_name = f"Inventario_Pro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                                        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    else:
+                                        # Es CSV (fallback)
+                                        file_name = f"Inventario_Pro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                                        mime_type = "text/csv"
+                                    
+                                    st.download_button(
+                                        label=f"⬇️ Descargar {file_name.split('.')[-1].upper()}",
+                                        data=excel_data,
+                                        file_name=file_name,
+                                        mime=mime_type,
+                                        use_container_width=True,
+                                        key=f"download_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                                    )
+                                    st.success("¡Reporte generado exitosamente!")
+                                else:
+                                    st.error("No hay datos para generar el reporte")
+                        except Exception as e:
+                            st.error(f"Error generando reporte: {str(e)}")
+                            # Ofrecer descarga CSV como alternativa
+                            df_conteo = pd.DataFrame(st.session_state.conteo_fisico)
+                            csv_data = df_conteo.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="⬇️ Descargar CSV (Alternativo)",
+                                data=csv_data,
+                                file_name=f"Inventario_Pro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
                 
                 with col3:
                     if st.button("📈 Actualizar Dashboard", use_container_width=True):

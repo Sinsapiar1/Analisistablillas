@@ -111,29 +111,49 @@ function initKeyboardNavigation() {
             return rect.width > 0 && rect.height > 0;
         });
         
-        if (visibleInputs.length >= 3) {
-            // Configurar navegación entre los primeros 3 campos
-            visibleInputs[0].addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    visibleInputs[1].focus();
-                    visibleInputs[1].select();
-                }
-            });
-            
-            visibleInputs[1].addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    visibleInputs[2].focus();
-                    visibleInputs[2].select();
-                }
-            });
-            
-            // En el último campo, no hacer submit automático
-            // Dejar que el usuario use el botón manualmente
-            
-            console.log('✅ Navegación configurada para', visibleInputs.length, 'campos');
-        }
+                 if (visibleInputs.length >= 3) {
+             // Configurar navegación entre los primeros 3 campos
+             visibleInputs[0].addEventListener('keydown', (e) => {
+                 if (e.key === 'Enter') {
+                     e.preventDefault();
+                     visibleInputs[1].focus();
+                     visibleInputs[1].select();
+                 }
+             });
+             
+             visibleInputs[1].addEventListener('keydown', (e) => {
+                 if (e.key === 'Enter') {
+                     e.preventDefault();
+                     visibleInputs[2].focus();
+                     visibleInputs[2].select();
+                 }
+             });
+             
+             // En el último campo (cantidad), Enter activa el botón agregar
+             visibleInputs[2].addEventListener('keydown', (e) => {
+                 if (e.key === 'Enter') {
+                     e.preventDefault();
+                     // Buscar el botón "Agregar al Conteo"
+                     const addButton = document.querySelector('button[kind="primary"]');
+                     if (addButton && addButton.textContent.includes('Agregar')) {
+                         console.log('✅ Enter en cantidad - activando botón agregar');
+                         addButton.click();
+                     } else {
+                         // Buscar por otros selectores
+                         const buttons = document.querySelectorAll('button');
+                         for (const button of buttons) {
+                             if (button.textContent.includes('Agregar') || button.textContent.includes('➕')) {
+                                 console.log('✅ Botón agregar encontrado - haciendo clic');
+                                 button.click();
+                                 break;
+                             }
+                         }
+                     }
+                 }
+             });
+             
+             console.log('✅ Navegación configurada para', visibleInputs.length, 'campos (Enter en cantidad agrega automáticamente)');
+         }
     }, 500);
 }
 
@@ -146,6 +166,41 @@ const observer = new MutationObserver(() => {
     setTimeout(initKeyboardNavigation, 200);
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+// Función para auto-focus en primer campo después de agregar
+function autoFocusFirstField() {
+    setTimeout(() => {
+        const inputs = document.querySelectorAll('input[type="text"], input[type="number"]');
+        const visibleInputs = Array.from(inputs).filter(input => {
+            const rect = input.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
+        
+        if (visibleInputs.length > 0) {
+            visibleInputs[0].focus();
+            visibleInputs[0].select();
+            console.log('🎯 Auto-focus en primer campo activado');
+        }
+    }, 300);
+}
+
+// Detectar cuando se agrega un registro y hacer auto-focus
+const statusObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1 && node.querySelector) {
+                    // Buscar mensajes de éxito que indican que se agregó un registro
+                    const successMessages = node.querySelectorAll('.stAlert, .stSuccess, [data-testid="stAlert"]');
+                    if (successMessages.length > 0) {
+                        autoFocusFirstField();
+                    }
+                }
+            });
+        }
+    });
+});
+statusObserver.observe(document.body, { childList: true, subtree: true });
 </script>
 """, unsafe_allow_html=True)
 
@@ -478,14 +533,14 @@ def create_executive_dashboard():
 def main():
     """Función principal de la aplicación"""
     
-    # Header principal
-    st.markdown("""
-    <div class="main-header">
-        <h1>📦 Visor de Inventario Pro v2.0</h1>
-        <p>Sistema avanzado de análisis de inventarios físicos</p>
-        <p><small>⚠️ Navegación: Tablilla → Tab → ID Pallet → Tab → Cantidad → Botón Agregar</small></p>
-    </div>
-    """, unsafe_allow_html=True)
+         # Header principal
+     st.markdown("""
+     <div class="main-header">
+         <h1>📦 Visor de Inventario Pro v2.0</h1>
+         <p>Sistema avanzado de análisis de inventarios físicos</p>
+         <p><small>⌨️ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small></p>
+     </div>
+     """, unsafe_allow_html=True)
     
     # Sidebar para carga de archivo
     with st.sidebar:
@@ -560,14 +615,15 @@ def main():
         # Digitación con campos separados
         st.subheader("⌨️ Digitación de Conteo Físico")
         
-        # Instrucciones
-        st.markdown("""
-        <div class="keyboard-instructions">
-            <i class="fas fa-keyboard"></i>
-            <strong>Navegación:</strong> Tablilla → Tab → ID Pallet (verás info) → Tab → Cantidad → Clic Agregar<br>
-            <small>💡 La información del pallet se detecta automáticamente al escribir el ID</small>
-        </div>
-        """, unsafe_allow_html=True)
+                 # Instrucciones
+         st.markdown("""
+         <div class="keyboard-instructions">
+             <i class="fas fa-keyboard"></i>
+             <strong>🚀 Navegación Optimizada:</strong><br>
+             1️⃣ <strong>Tablilla</strong> → <kbd>Enter</kbd> → 2️⃣ <strong>ID Pallet</strong> → <kbd>Enter</kbd> → 3️⃣ <strong>Cantidad</strong> → <kbd>Enter</kbd> (agregar automáticamente)<br>
+             <small>💡 La información del pallet aparece automáticamente al escribir el ID | También puedes usar Tab</small>
+         </div>
+         """, unsafe_allow_html=True)
         
         # Inicializar contador para keys dinámicas
         if 'campo_counter' not in st.session_state:
@@ -608,14 +664,14 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
         
-        with col3:
-            cantidad_contada = st.number_input(
-                "Cantidad Contada",
-                min_value=0,
-                step=1,
-                key=f"input_cantidad_{st.session_state.campo_counter}",
-                help="Cantidad física encontrada"
-            )
+                 with col3:
+             cantidad_contada = st.number_input(
+                 "Cantidad Contada",
+                 min_value=0,
+                 step=1,
+                 key=f"input_cantidad_{st.session_state.campo_counter}",
+                 help="Presiona Enter aquí para agregar automáticamente"
+             )
         
         # Botón para agregar
         if st.button("➕ Agregar al Conteo", use_container_width=True, type="primary"):

@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado y JavaScript mejorado
+# CSS personalizado y JavaScript mejorado para navegación por teclado
 st.markdown("""
 <style>
     /* Estilos principales mejorados */
@@ -110,82 +110,259 @@ st.markdown("""
         font-weight: bold;
         color: #155724;
     }
+    
+    /* Estilos para campos de entrada con focus mejorado */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
+        border: 2px solid #e9ecef !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-size: 16px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #007bff !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+        background-color: rgba(0, 123, 255, 0.05) !important;
+    }
 </style>
 
 <script>
-// Sistema de navegación por teclado mejorado
-let currentFieldIndex = 0;
-let fields = [];
-let isProcessing = false;
-
-function initializeKeyboardNavigation() {
-    // Obtener todos los campos de entrada visibles
-    fields = Array.from(document.querySelectorAll('input[type="text"], input[type="number"]'))
-        .filter(input => input.offsetParent !== null);
-    
-    // Configurar eventos para cada campo
-    fields.forEach((field, index) => {
-        field.removeEventListener('keydown', handleKeyDown);
-        field.addEventListener('keydown', handleKeyDown);
-        field.setAttribute('data-field-index', index);
-    });
-    
-    // Auto-focus en el primer campo
-    if (fields.length > 0 && !isProcessing) {
-        setTimeout(() => {
-            fields[0].focus();
-            fields[0].select();
-            currentFieldIndex = 0;
-        }, 100);
-    }
-}
-
-function handleKeyDown(e) {
-    const currentField = e.target;
-    const fieldIndex = parseInt(currentField.getAttribute('data-field-index'));
-    
-    if (e.key === 'Enter') {
-        e.preventDefault();
+// Sistema de navegación por teclado más robusto
+class KeyboardNavigationSystem {
+    constructor() {
+        this.fields = [];
+        this.currentIndex = 0;
+        this.isProcessing = false;
+        this.initialized = false;
+        this.retryCount = 0;
+        this.maxRetries = 10;
         
-        if (fieldIndex === fields.length - 1) {
-            // Último campo (cantidad) - activar botón agregar
-            const addButton = document.querySelector('button[kind="primary"]');
-            if (addButton && addButton.textContent.includes('Agregar')) {
-                isProcessing = true;
-                addButton.click();
-                
-                // Después de agregar, esperar y re-enfocar
-                setTimeout(() => {
-                    isProcessing = false;
-                    initializeKeyboardNavigation();
-                }, 500);
+        // Inicializar con múltiples intentos
+        this.initWithRetry();
+    }
+    
+    initWithRetry() {
+        if (this.initialized || this.retryCount >= this.maxRetries) return;
+        
+        this.retryCount++;
+        
+        // Esperar a que Streamlit termine de renderizar
+        setTimeout(() => {
+            if (this.setupFields()) {
+                this.bindEvents();
+                this.focusFirstField();
+                this.initialized = true;
+                console.log('✅ Sistema de navegación por teclado inicializado');
+            } else {
+                // Reintentar si no se encontraron campos
+                this.initWithRetry();
             }
-        } else {
-            // Ir al siguiente campo
-            const nextField = fields[fieldIndex + 1];
-            if (nextField) {
-                nextField.focus();
-                nextField.select();
-                currentFieldIndex = fieldIndex + 1;
+        }, 100 * this.retryCount); // Incrementar delay en cada intento
+    }
+    
+    setupFields() {
+        // Buscar campos de entrada por múltiples selectores
+        const selectors = [
+            'input[data-testid="stTextInput-testid"] input',
+            'input[data-testid="stNumberInput-testid"] input',
+            'input[type="text"]',
+            'input[type="number"]',
+            '.stTextInput input',
+            '.stNumberInput input'
+        ];
+        
+        let allFields = [];
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            allFields = allFields.concat(Array.from(elements));
+        });
+        
+        // Filtrar campos visibles y únicos
+        this.fields = allFields
+            .filter((input, index, self) => 
+                input.offsetParent !== null && // Visible
+                self.indexOf(input) === index && // Único
+                !input.disabled && // No deshabilitado
+                !input.readOnly // No solo lectura
+            )
+            .sort((a, b) => {
+                // Ordenar por posición en la página
+                const rectA = a.getBoundingClientRect();
+                const rectB = b.getBoundingClientRect();
+                return rectA.top - rectB.top || rectA.left - rectB.left;
+            });
+        
+        console.log(`Encontrados ${this.fields.length} campos de entrada`);
+        return this.fields.length > 0;
+    }
+    
+    bindEvents() {
+        // Limpiar eventos anteriores
+        this.unbindEvents();
+        
+        this.fields.forEach((field, index) => {
+            // Marcar el campo con su índice
+            field.setAttribute('data-nav-index', index);
+            
+            // Agregar event listeners
+            field.addEventListener('keydown', (e) => this.handleKeyDown(e, index));
+            field.addEventListener('focus', () => this.currentIndex = index);
+            field.addEventListener('input', (e) => this.handleInput(e, index));
+        });
+        
+        console.log('Eventos de teclado configurados');
+    }
+    
+    unbindEvents() {
+        this.fields.forEach(field => {
+            field.removeEventListener('keydown', this.handleKeyDown);
+            field.removeEventListener('focus', this.handleFocus);
+            field.removeEventListener('input', this.handleInput);
+        });
+    }
+    
+    handleKeyDown(e, index) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`Enter presionado en campo ${index}`);
+            
+            if (index === this.fields.length - 1) {
+                // Último campo - buscar y hacer clic en el botón agregar
+                this.clickAddButton();
+            } else {
+                // Ir al siguiente campo
+                this.goToNextField(index);
             }
+        } else if (e.key === 'Tab' && !e.shiftKey) {
+            // Tab normal - permitir pero actualizar índice
+            this.currentIndex = Math.min(this.fields.length - 1, index + 1);
+        } else if (e.key === 'Tab' && e.shiftKey) {
+            // Shift+Tab - ir al campo anterior
+            this.currentIndex = Math.max(0, index - 1);
         }
     }
+    
+    handleInput(e, index) {
+        // Si es el campo de ID de pallet (generalmente el segundo), 
+        // disparar búsqueda automática
+        if (index === 1 && e.target.value.trim()) {
+            console.log('Detectando información del pallet:', e.target.value);
+        }
+    }
+    
+    goToNextField(currentIndex) {
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < this.fields.length) {
+            const nextField = this.fields[nextIndex];
+            nextField.focus();
+            nextField.select();
+            this.currentIndex = nextIndex;
+            console.log(`Navegando al campo ${nextIndex}`);
+        }
+    }
+    
+    clickAddButton() {
+        console.log('Buscando botón Agregar...');
+        
+        // Múltiples selectores para encontrar el botón
+        const buttonSelectors = [
+            'button[data-testid="baseButton-secondary"]',
+            'button[kind="primary"]',
+            'button:contains("Agregar")',
+            'button[type="submit"]',
+            '.stButton button'
+        ];
+        
+        let addButton = null;
+        
+        for (const selector of buttonSelectors) {
+            const buttons = document.querySelectorAll(selector);
+            for (const button of buttons) {
+                if (button.textContent.includes('Agregar') || 
+                    button.textContent.includes('➕') ||
+                    button.getAttribute('data-testid') === 'baseButton-secondary') {
+                    addButton = button;
+                    break;
+                }
+            }
+            if (addButton) break;
+        }
+        
+        if (addButton) {
+            console.log('✅ Botón Agregar encontrado, haciendo clic...');
+            this.isProcessing = true;
+            addButton.click();
+            
+            // Esperar un poco y luego reconfigurar
+            setTimeout(() => {
+                this.isProcessing = false;
+                this.reinitialize();
+            }, 1000);
+        } else {
+            console.log('❌ Botón Agregar no encontrado');
+        }
+    }
+    
+    focusFirstField() {
+        if (this.fields.length > 0 && !this.isProcessing) {
+            setTimeout(() => {
+                this.fields[0].focus();
+                this.fields[0].select();
+                this.currentIndex = 0;
+                console.log('Foco establecido en el primer campo');
+            }, 100);
+        }
+    }
+    
+    reinitialize() {
+        console.log('Reinicializando sistema de navegación...');
+        this.initialized = false;
+        this.retryCount = 0;
+        this.initWithRetry();
+    }
 }
 
-// Inicializar cuando la página se carga
-document.addEventListener('DOMContentLoaded', initializeKeyboardNavigation);
+// Inicializar el sistema cuando el DOM esté listo
+let navigationSystem = null;
 
-// Re-inicializar después de actualizaciones de Streamlit
+function initializeNavigation() {
+    if (!navigationSystem) {
+        navigationSystem = new KeyboardNavigationSystem();
+    } else {
+        navigationSystem.reinitialize();
+    }
+}
+
+// Múltiples puntos de inicialización para asegurar que funcione
+document.addEventListener('DOMContentLoaded', initializeNavigation);
+window.addEventListener('load', initializeNavigation);
+
+// Observer para detectar cambios en Streamlit
 const observer = new MutationObserver((mutations) => {
     let shouldReinit = false;
     mutations.forEach((mutation) => {
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-            shouldReinit = true;
+            // Verificar si se agregaron inputs o botones
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === 1) { // Element node
+                    if (node.querySelector && 
+                        (node.querySelector('input') || node.querySelector('button'))) {
+                        shouldReinit = true;
+                    }
+                }
+            });
         }
     });
     
-    if (shouldReinit && !isProcessing) {
-        setTimeout(initializeKeyboardNavigation, 100);
+    if (shouldReinit && navigationSystem && !navigationSystem.isProcessing) {
+        setTimeout(() => {
+            navigationSystem.reinitialize();
+        }, 200);
     }
 });
 
@@ -193,6 +370,15 @@ observer.observe(document.body, {
     childList: true, 
     subtree: true 
 });
+
+// Reinicializar cada pocos segundos como respaldo
+setInterval(() => {
+    if (navigationSystem && !navigationSystem.isProcessing && !navigationSystem.initialized) {
+        navigationSystem.reinitialize();
+    }
+}, 3000);
+
+console.log('🚀 Sistema de navegación por teclado cargado');
 </script>
 """, unsafe_allow_html=True)
 
@@ -208,7 +394,12 @@ def init_session_state():
         'session_stats': {
             'start_time': datetime.now(),
             'total_processed': 0,
-        }
+        },
+        # Nuevo: estados para navegación
+        'current_tablilla': '',
+        'current_pallet': '',
+        'current_cantidad': 0,
+        'pallet_info': None
     }
     
     for key, default_value in defaults.items():
@@ -569,7 +760,8 @@ def main():
     st.markdown("""
     <div class="main-header">
         <h1>📦 Visor de Inventario Pro - Enhanced Edition</h1>
-        <p>Sistema avanzado con navegación optimizada y analytics ejecutivos</p>
+        <p>Sistema avanzado con navegación optimizada por teclado</p>
+        <p><small>Flujo: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -661,29 +853,26 @@ def main():
             create_executive_dashboard()
         
         # Sección de digitación mejorada
-        st.subheader("⌨️ Digitación Rápida")
+        st.subheader("⌨️ Digitación Rápida - Navegación por Teclado Activada")
         
         # Instrucciones mejoradas
         st.markdown("""
         <div class="keyboard-instructions">
-            <i class="fas fa-info-circle"></i>
-            <strong>🚀 Navegación rápida:</strong> Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)
+            <i class="fas fa-keyboard"></i>
+            <strong>🚀 Navegación por Teclado:</strong><br>
+            1️⃣ Tablilla → <kbd>Enter</kbd> → 2️⃣ ID Pallet → <kbd>Enter</kbd> → 3️⃣ Cantidad → <kbd>Enter</kbd> (agregar automáticamente)<br>
+            <small>💡 También puedes usar <kbd>Tab</kbd> para navegar entre campos</small>
         </div>
         """, unsafe_allow_html=True)
         
-        with st.container():
-            st.markdown('<div class="input-section active">', unsafe_allow_html=True)
-            
-            # Usar contador para keys dinámicas
-            counter = st.session_state.campo_counter
-            
+        # Usar form para mejor manejo de Enter
+        with st.form(key="pallet_form", clear_on_submit=True):
             col1, col2, col3, col4 = st.columns([1, 2, 1, 1])
             
             with col1:
                 numero_tablilla = st.text_input(
                     "📋 Tablilla",
                     placeholder="001",
-                    key=f"tablilla_{counter}",
                     help="Presiona Enter para ir al siguiente campo"
                 )
             
@@ -691,7 +880,6 @@ def main():
                 id_pallet = st.text_input(
                     "🏷️ ID Pallet",
                     placeholder="PLT001",
-                    key=f"pallet_{counter}",
                     help="El sistema detectará la información automáticamente"
                 )
             
@@ -700,40 +888,44 @@ def main():
                     "📊 Cantidad",
                     min_value=0,
                     step=1,
-                    key=f"cantidad_{counter}",
                     help="Presiona Enter aquí para agregar automáticamente"
                 )
             
             with col4:
                 st.markdown("<br>", unsafe_allow_html=True)  # Espaciado
-                agregar_btn = st.button(
+                agregar_btn = st.form_submit_button(
                     "➕ Agregar", 
                     use_container_width=True,
-                    type="primary",
-                    key=f"btn_agregar_{counter}"
+                    type="primary"
                 )
+        
+        # Detección en tiempo real (fuera del form para que funcione)
+        if id_pallet:
+            almacen, codigo, nombre, inv_sistema, found = buscar_info_pallet_optimized(
+                id_pallet, st.session_state.inventario_sistema
+            )
             
-            # Detección en tiempo real
-            if id_pallet:
-                almacen, codigo, nombre, inv_sistema, found = buscar_info_pallet_optimized(
-                    id_pallet, st.session_state.inventario_sistema
-                )
-                
-                if found:
-                    st.success(f"✅ **{almacen}** | {codigo} | {nombre[:40]}{'...' if len(nombre) > 40 else ''} | Sistema: **{inv_sistema}**")
-                else:
-                    st.warning("⚠️ Pallet no encontrado en el sistema")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Procesar cuando se presiona el botón
-            if agregar_btn and numero_tablilla and id_pallet is not None:
-                if procesar_pallet_optimized(numero_tablilla, id_pallet, cantidad_contada):
-                    # Incrementar contador para limpiar campos
-                    st.session_state.campo_counter += 1
-                    st.rerun()
-            elif agregar_btn:
-                st.error("Por favor completa Tablilla e ID de Pallet")
+            if found:
+                st.success(f"✅ **{almacen}** | {codigo} | {nombre[:40]}{'...' if len(nombre) > 40 else ''} | Sistema: **{inv_sistema}**")
+                st.session_state.pallet_info = {
+                    'almacen': almacen,
+                    'codigo': codigo,
+                    'nombre': nombre,
+                    'inv_sistema': inv_sistema,
+                    'found': found
+                }
+            else:
+                st.warning("⚠️ Pallet no encontrado en el sistema")
+                st.session_state.pallet_info = None
+        
+        # Procesar cuando se presiona el botón
+        if agregar_btn and numero_tablilla and id_pallet is not None:
+            if procesar_pallet_optimized(numero_tablilla, id_pallet, cantidad_contada):
+                # Limpiar estados
+                st.session_state.pallet_info = None
+                st.rerun()
+        elif agregar_btn:
+            st.error("Por favor completa Tablilla e ID de Pallet")
         
         # Mostrar resultados si existen
         if st.session_state.conteo_fisico:
@@ -812,7 +1004,6 @@ def main():
                 with col1:
                     if st.button("🗑️ Limpiar Todo", use_container_width=True):
                         st.session_state.conteo_fisico = []
-                        st.session_state.campo_counter += 1
                         st.rerun()
                 
                 with col2:
@@ -873,6 +1064,6 @@ st.markdown("""
 <div style='text-align: center; color: #666; padding: 2rem;'>
     <h4>📦 Visor de Inventario Pro - Enhanced Edition</h4>
     <p>Sistema avanzado con navegación optimizada por teclado y análisis ejecutivo</p>
-    <p><em>Versión final optimizada para Streamlit Cloud</em></p>
+    <p><em>Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter</em></p>
 </div>
 """, unsafe_allow_html=True)

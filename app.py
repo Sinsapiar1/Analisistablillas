@@ -533,14 +533,14 @@ def create_executive_dashboard():
 def main():
     """Función principal de la aplicación"""
     
-         # Header principal
-     st.markdown("""
-     <div class="main-header">
-         <h1>📦 Visor de Inventario Pro v2.0</h1>
-         <p>Sistema avanzado de análisis de inventarios físicos</p>
-         <p><small>⌨️ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small></p>
-     </div>
-     """, unsafe_allow_html=True)
+    # Header principal
+    st.markdown("""
+    <div class="main-header">
+        <h1>📦 Visor de Inventario Pro v2.0</h1>
+        <p>Sistema avanzado de análisis de inventarios físicos</p>
+        <p><small>⌨️ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small></p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Sidebar para carga de archivo
     with st.sidebar:
@@ -615,15 +615,15 @@ def main():
         # Digitación con campos separados
         st.subheader("⌨️ Digitación de Conteo Físico")
         
-                 # Instrucciones
-         st.markdown("""
-         <div class="keyboard-instructions">
-             <i class="fas fa-keyboard"></i>
-             <strong>🚀 Navegación Optimizada:</strong><br>
-             1️⃣ <strong>Tablilla</strong> → <kbd>Enter</kbd> → 2️⃣ <strong>ID Pallet</strong> → <kbd>Enter</kbd> → 3️⃣ <strong>Cantidad</strong> → <kbd>Enter</kbd> (agregar automáticamente)<br>
-             <small>💡 La información del pallet aparece automáticamente al escribir el ID | También puedes usar Tab</small>
-         </div>
-         """, unsafe_allow_html=True)
+                         # Instrucciones
+        st.markdown("""
+        <div class="keyboard-instructions">
+            <i class="fas fa-keyboard"></i>
+            <strong>🚀 Navegación Optimizada:</strong><br>
+            1️⃣ <strong>Tablilla</strong> → <kbd>Enter</kbd> → 2️⃣ <strong>ID Pallet</strong> → <kbd>Enter</kbd> → 3️⃣ <strong>Cantidad</strong> → <kbd>Enter</kbd> (agregar automáticamente)<br>
+            <small>💡 La información del pallet aparece automáticamente al escribir el ID | También puedes usar Tab</small>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Inicializar contador para keys dinámicas
         if 'campo_counter' not in st.session_state:
@@ -664,14 +664,14 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
         
-                 with col3:
-             cantidad_contada = st.number_input(
-                 "Cantidad Contada",
-                 min_value=0,
-                 step=1,
-                 key=f"input_cantidad_{st.session_state.campo_counter}",
-                 help="Presiona Enter aquí para agregar automáticamente"
-             )
+        with col3:
+            cantidad_contada = st.number_input(
+                "Cantidad Contada",
+                min_value=0,
+                step=1,
+                key=f"input_cantidad_{st.session_state.campo_counter}",
+                help="Presiona Enter aquí para agregar automáticamente"
+            )
         
         # Botón para agregar
         if st.button("➕ Agregar al Conteo", use_container_width=True, type="primary"):

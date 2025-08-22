@@ -320,20 +320,26 @@
             <small>⚡ Navegación: Tablilla → Enter → ID Pallet → Enter → Cantidad → Enter (agregar automáticamente)</small>
         </div>
 
-        <!-- File Upload Section -->
-        <div class="input-section" id="uploadSection">
-            <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Archivo de Inventario</h3>
-            <div class="row">
-                <div class="col-md-8 offset-md-2">
-                    <input type="file" class="form-control mb-3" id="inventoryFile" accept=".xlsx,.xls" required>
-                    <div class="text-center">
-                        <button type="button" class="btn btn-primary btn-lg" onclick="loadInventory()">
-                            <i class="fas fa-cloud-upload-alt"></i> Cargar Inventario
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+                 <!-- File Upload Section -->
+         <div class="input-section" id="uploadSection">
+             <h3 class="text-center mb-4"><i class="fas fa-upload"></i> Cargar Archivo de Inventario</h3>
+             <div class="row">
+                 <div class="col-md-8 offset-md-2">
+                     <input type="file" class="form-control mb-3" id="inventoryFile" accept=".xlsx,.xls" required onchange="showFileInfo()">
+                     <div id="fileInfo" class="alert alert-info" style="display: none;">
+                         <i class="fas fa-info-circle"></i> <span id="fileDetails"></span>
+                     </div>
+                     <div class="text-center">
+                         <button type="button" class="btn btn-primary btn-lg" onclick="loadInventory()">
+                             <i class="fas fa-cloud-upload-alt"></i> Cargar Inventario
+                         </button>
+                     </div>
+                     <div class="text-muted text-center mt-2">
+                         <small><i class="fas fa-info-circle"></i> Optimizado para archivos grandes (hasta 50MB / 50,000+ filas)</small>
+                     </div>
+                 </div>
+             </div>
+         </div>
 
         <!-- Statistics Dashboard -->
         <div id="statsSection" class="row mb-4" style="display: none;">
@@ -551,92 +557,156 @@
                 console.log('✅ Sistema de navegación por teclado inicializado');
             }
 
-            // Cargar archivo de inventario
-            async loadInventory() {
-                const fileInput = document.getElementById('inventoryFile');
-                const file = fileInput.files[0];
-                
-                if (!file) {
-                    alert('Por favor selecciona un archivo');
-                    return;
-                }
+                         // Cargar archivo de inventario - OPTIMIZADO para archivos grandes
+             async loadInventory() {
+                 const fileInput = document.getElementById('inventoryFile');
+                 const file = fileInput.files[0];
+                 
+                 if (!file) {
+                     alert('Por favor selecciona un archivo');
+                     return;
+                 }
 
-                this.showProcessing(true);
+                 // Verificar tamaño del archivo
+                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                 console.log(`📁 Archivo seleccionado: ${file.name} (${fileSizeMB} MB)`);
+                 
+                 if (file.size > 50 * 1024 * 1024) { // 50MB límite
+                     alert(`Archivo muy grande (${fileSizeMB} MB). El límite es 50MB.`);
+                     return;
+                 }
 
-                try {
-                    const data = await file.arrayBuffer();
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                 this.showProcessing(true);
+                 this.showMessage(`📁 Procesando archivo de ${fileSizeMB} MB...`, 'info');
 
-                    // Validar columnas requeridas
-                    if (jsonData.length === 0) {
-                        throw new Error('El archivo está vacío');
-                    }
+                 try {
+                     // Usar setTimeout para no bloquear la UI
+                     await new Promise(resolve => setTimeout(resolve, 100));
+                     
+                     console.log('🔄 Leyendo archivo...');
+                     const data = await file.arrayBuffer();
+                     
+                     console.log('📊 Parseando Excel...');
+                     const workbook = XLSX.read(data, { 
+                         type: 'array',
+                         cellDates: false,
+                         cellNF: false,
+                         cellStyles: false
+                     });
+                     
+                     const sheetName = workbook.SheetNames[0];
+                     const worksheet = workbook.Sheets[sheetName];
+                     
+                     // Procesar en chunks para archivos grandes
+                     console.log('🔄 Convirtiendo a JSON...');
+                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                         raw: false,
+                         defval: ''
+                     });
 
-                    const firstRow = jsonData[0];
-                    const requiredCols = ['Id de pallet', 'Inventario físico'];
-                    const missingCols = requiredCols.filter(col => !(col in firstRow));
+                     console.log(`📋 ${jsonData.length} filas encontradas`);
 
-                    if (missingCols.length > 0) {
-                        throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}`);
-                    }
+                     // Validar columnas requeridas
+                     if (jsonData.length === 0) {
+                         throw new Error('El archivo está vacío');
+                     }
 
-                    // Procesar datos
-                    inventoryData = jsonData.map(row => ({
-                        id: String(row['Id de pallet'] || '').trim(),
-                        quantity: parseInt(row['Inventario físico']) || 0,
-                        warehouse: String(row['Almacén'] || 'Almacén General').trim(),
-                        code: String(row['Código de artículo'] || 'N/A').trim(),
-                        name: String(row['Nombre del producto'] || 'Producto sin nombre').trim()
-                    }));
+                     const firstRow = jsonData[0];
+                     const requiredCols = ['Id de pallet', 'Inventario físico'];
+                     const missingCols = requiredCols.filter(col => !(col in firstRow));
 
-                    // Mostrar estadísticas de carga
-                    const duplicates = this.findDuplicates(inventoryData.map(item => item.id));
-                    
-                    this.showMessage(`✅ Inventario cargado: ${inventoryData.length} registros${duplicates > 0 ? ` (${duplicates} duplicados detectados)` : ''}`, 'success');
-                    
-                    // Mostrar secciones
-                    document.getElementById('uploadSection').style.display = 'none';
-                    document.getElementById('statsSection').style.display = 'block';
-                    document.getElementById('inputSection').style.display = 'block';
-                    
-                    // Auto-focus en primer campo
-                    setTimeout(() => {
-                        document.getElementById('numeroTablilla').focus();
-                    }, 100);
+                     if (missingCols.length > 0) {
+                         throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}\nColumnas disponibles: ${Object.keys(firstRow).join(', ')}`);
+                     }
 
-                } catch (error) {
-                    this.showMessage(`❌ Error cargando archivo: ${error.message}`, 'error');
-                } finally {
-                    this.showProcessing(false);
-                }
-            }
+                     // Procesar datos en chunks para mejor performance
+                     console.log('🔄 Procesando datos...');
+                     inventoryData = [];
+                     const chunkSize = 1000;
+                     
+                     for (let i = 0; i < jsonData.length; i += chunkSize) {
+                         const chunk = jsonData.slice(i, i + chunkSize);
+                         
+                         const processedChunk = chunk.map(row => ({
+                             id: String(row['Id de pallet'] || '').trim(),
+                             quantity: parseInt(row['Inventario físico']) || 0,
+                             warehouse: String(row['Almacén'] || 'Almacén General').trim(),
+                             code: String(row['Código de artículo'] || 'N/A').trim(),
+                             name: String(row['Nombre del producto'] || 'Producto sin nombre').trim()
+                         }));
+                         
+                         inventoryData = inventoryData.concat(processedChunk);
+                         
+                         // Actualizar progreso
+                         const progress = Math.round((i + chunkSize) / jsonData.length * 100);
+                         this.showMessage(`🔄 Procesando: ${Math.min(progress, 100)}% (${inventoryData.length}/${jsonData.length} registros)`, 'info');
+                         
+                         // Permitir que la UI se actualice
+                         await new Promise(resolve => setTimeout(resolve, 10));
+                     }
 
-            // Buscar información del pallet
-            searchPalletInfo(palletId) {
-                const info = inventoryData.find(item => item.id.toLowerCase() === palletId.toLowerCase());
-                const infoDiv = document.getElementById('palletInfo');
-                
-                if (info) {
-                    infoDiv.innerHTML = `
-                        <div class="pallet-info">
-                            <i class="fas fa-check-circle"></i>
-                            <strong>✅ Detectado:</strong> ${info.warehouse} | ${info.code} | 
-                            ${info.name.substring(0, 40)}${info.name.length > 40 ? '...' : ''} | 
-                            Sistema: <strong>${info.quantity}</strong>
-                        </div>
-                    `;
-                } else {
-                    infoDiv.innerHTML = `
-                        <div class="pallet-not-found">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <strong>⚠️ Pallet no encontrado en el sistema</strong>
-                        </div>
-                    `;
-                }
-            }
+                     // Crear índice para búsquedas rápidas
+                     console.log('🔍 Creando índice de búsqueda...');
+                     window.inventoryIndex = {};
+                     inventoryData.forEach((item, index) => {
+                         window.inventoryIndex[item.id.toLowerCase()] = index;
+                     });
+
+                     // Mostrar estadísticas de carga
+                     const duplicates = this.findDuplicates(inventoryData.map(item => item.id));
+                     
+                     this.showMessage(`✅ Inventario cargado exitosamente: ${inventoryData.length.toLocaleString()} registros${duplicates > 0 ? ` (${duplicates} duplicados detectados)` : ''}`, 'success');
+                     
+                     // Mostrar secciones
+                     document.getElementById('uploadSection').style.display = 'none';
+                     document.getElementById('statsSection').style.display = 'block';
+                     document.getElementById('inputSection').style.display = 'block';
+                     
+                     // Auto-focus en primer campo
+                     setTimeout(() => {
+                         document.getElementById('numeroTablilla').focus();
+                         console.log('🎯 Listo para digitación ultra-rápida');
+                     }, 100);
+
+                 } catch (error) {
+                     console.error('❌ Error:', error);
+                     this.showMessage(`❌ Error cargando archivo: ${error.message}`, 'error');
+                 } finally {
+                     this.showProcessing(false);
+                 }
+             }
+
+                         // Buscar información del pallet - OPTIMIZADO para archivos grandes
+             searchPalletInfo(palletId) {
+                 const infoDiv = document.getElementById('palletInfo');
+                 
+                 if (!palletId.trim()) {
+                     infoDiv.innerHTML = '';
+                     return;
+                 }
+                 
+                 // Búsqueda ultra-rápida usando índice
+                 const index = window.inventoryIndex ? window.inventoryIndex[palletId.toLowerCase()] : -1;
+                 const info = index !== -1 && index !== undefined ? inventoryData[index] : null;
+                 
+                 if (info) {
+                     infoDiv.innerHTML = `
+                         <div class="pallet-info">
+                             <i class="fas fa-check-circle"></i>
+                             <strong>✅ Detectado:</strong> ${info.warehouse} | ${info.code} | 
+                             ${info.name.substring(0, 40)}${info.name.length > 40 ? '...' : ''} | 
+                             Sistema: <strong>${info.quantity}</strong>
+                         </div>
+                     `;
+                 } else {
+                     infoDiv.innerHTML = `
+                         <div class="pallet-not-found">
+                             <i class="fas fa-exclamation-triangle"></i>
+                             <strong>⚠️ Pallet no encontrado en el sistema</strong>
+                         </div>
+                     `;
+                 }
+             }
 
             // Agregar pallet
             addPallet() {
@@ -661,9 +731,11 @@
                 this.processPallet(tablilla, palletId, quantity);
             }
 
-            // Procesar pallet
-            processPallet(tablilla, palletId, quantity, replaceIndex = -1) {
-                const inventoryInfo = inventoryData.find(item => item.id.toLowerCase() === palletId.toLowerCase());
+                         // Procesar pallet - OPTIMIZADO para archivos grandes
+             processPallet(tablilla, palletId, quantity, replaceIndex = -1) {
+                 // Búsqueda ultra-rápida usando índice
+                 const index = window.inventoryIndex ? window.inventoryIndex[palletId.toLowerCase()] : -1;
+                 const inventoryInfo = index !== -1 && index !== undefined ? inventoryData[index] : null;
                 
                 const newItem = {
                     tablilla: tablilla,
@@ -984,10 +1056,35 @@
         // Instancia global de la aplicación
         let app;
 
-        // Funciones globales
-        function loadInventory() {
-            app.loadInventory();
-        }
+                 // Funciones globales
+         function showFileInfo() {
+             const fileInput = document.getElementById('inventoryFile');
+             const file = fileInput.files[0];
+             
+             if (file) {
+                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                 const fileInfo = document.getElementById('fileInfo');
+                 const fileDetails = document.getElementById('fileDetails');
+                 
+                 fileDetails.textContent = `Archivo: ${file.name} (${fileSizeMB} MB)`;
+                 fileInfo.style.display = 'block';
+                 
+                 if (file.size > 50 * 1024 * 1024) {
+                     fileInfo.className = 'alert alert-warning';
+                     fileDetails.innerHTML = `<strong>⚠️ Archivo muy grande:</strong> ${file.name} (${fileSizeMB} MB) - Límite: 50MB`;
+                 } else if (file.size > 10 * 1024 * 1024) {
+                     fileInfo.className = 'alert alert-warning';
+                     fileDetails.innerHTML = `<strong>📁 Archivo grande:</strong> ${file.name} (${fileSizeMB} MB) - Procesamiento optimizado activado`;
+                 } else {
+                     fileInfo.className = 'alert alert-info';
+                     fileDetails.innerHTML = `<strong>📁 Archivo:</strong> ${file.name} (${fileSizeMB} MB) - Listo para procesar`;
+                 }
+             }
+         }
+
+         function loadInventory() {
+             app.loadInventory();
+         }
 
         function addPallet() {
             app.addPallet();

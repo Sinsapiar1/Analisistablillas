@@ -1,0 +1,37 @@
+[
+  {
+    "Id de pallet": "PLT001",
+    "Inventario físico": 50,
+    "Almacén": "A-001",
+    "Código de artículo": "ART001",
+    "Nombre del producto": "Producto Ejemplo 1"
+  },
+  {
+    "Id de pallet": "PLT002", 
+    "Inventario físico": 25,
+    "Almacén": "B-002",
+    "Código de artículo": "ART002",
+    "Nombre del producto": "Producto Ejemplo 2"
+  },
+  {
+    "Id de pallet": "PLT003",
+    "Inventario físico": 100,
+    "Almacén": "A-001", 
+    "Código de artículo": "ART003",
+    "Nombre del producto": "Producto Ejemplo 3"
+  },
+  {
+    "Id de pallet": "PLT004",
+    "Inventario físico": 0,
+    "Almacén": "C-003",
+    "Código de artículo": "ART004", 
+    "Nombre del producto": "Producto Ejemplo 4"
+  },
+  {
+    "Id de pallet": "PLT005",
+    "Inventario físico": 75,
+    "Almacén": "A-001",
+    "Código de artículo": "ART005",
+    "Nombre del producto": "Producto Ejemplo 5 con nombre muy largo para probar el truncado"
+  }
+]

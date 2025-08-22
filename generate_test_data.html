@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Datos de Prueba</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0"><i class="fas fa-database"></i> Generador de Datos de Prueba</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Genera archivos Excel de prueba para probar el sistema con diferentes tamaños:</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <button class="btn btn-success w-100 mb-2" onclick="generateTestFile(100)">
+                                    📄 Archivo Pequeño<br><small>100 registros</small>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-warning w-100 mb-2" onclick="generateTestFile(5000)">
+                                    📊 Archivo Mediano<br><small>5,000 registros</small>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-danger w-100 mb-2" onclick="generateTestFile(12000)">
+                                    📈 Archivo Grande<br><small>12,000 registros</small>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h5>Personalizado:</h5>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="customSize" placeholder="Número de registros" min="1" max="50000">
+                                <button class="btn btn-primary" onclick="generateCustomFile()">
+                                    <i class="fas fa-cog"></i> Generar
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <strong>💡 Nota:</strong> Los archivos generados contienen datos de prueba realistas con:
+                            <ul class="mb-0 mt-2">
+                                <li>IDs de pallet únicos (PLT00001, PLT00002, etc.)</li>
+                                <li>Cantidades aleatorias (0-500)</li>
+                                <li>Almacenes variados (A-001, B-002, C-003, etc.)</li>
+                                <li>Códigos y nombres de productos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateTestFile(numRecords) {
+            console.log(`🔄 Generando ${numRecords} registros...`);
+            
+            const data = [];
+            const warehouses = ['A-001', 'B-002', 'C-003', 'D-004', 'E-005'];
+            const productNames = [
+                'Producto Electrónico',
+                'Artículo de Hogar',
+                'Componente Industrial',
+                'Material de Oficina',
+                'Equipo de Seguridad',
+                'Herramienta Especializada',
+                'Accesorio Automotriz',
+                'Dispositivo Médico',
+                'Producto Químico',
+                'Material de Construcción'
+            ];
+            
+            for (let i = 1; i <= numRecords; i++) {
+                const palletId = `PLT${String(i).padStart(5, '0')}`;
+                const warehouse = warehouses[Math.floor(Math.random() * warehouses.length)];
+                const productName = productNames[Math.floor(Math.random() * productNames.length)];
+                
+                data.push({
+                    'Id de pallet': palletId,
+                    'Inventario físico': Math.floor(Math.random() * 500),
+                    'Almacén': warehouse,
+                    'Código de artículo': `ART${String(i).padStart(5, '0')}`,
+                    'Nombre del producto': `${productName} ${i}`
+                });
+                
+                // Mostrar progreso cada 1000 registros
+                if (i % 1000 === 0) {
+                    console.log(`📊 Progreso: ${i}/${numRecords} registros`);
+                }
+            }
+            
+            // Crear y descargar Excel
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+            
+            const fileName = `Inventario_Test_${numRecords}_registros.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            console.log(`✅ Archivo generado: ${fileName}`);
+            alert(`✅ Archivo de prueba generado: ${fileName}\n📊 ${numRecords} registros creados`);
+        }
+        
+        function generateCustomFile() {
+            const customSize = parseInt(document.getElementById('customSize').value);
+            
+            if (!customSize || customSize < 1 || customSize > 50000) {
+                alert('Por favor ingresa un número entre 1 y 50,000');
+                return;
+            }
+            
+            generateTestFile(customSize);
+        }
+    </script>
+</body>
+</html>

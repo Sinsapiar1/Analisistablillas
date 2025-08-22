@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # FastAPI - Navegación Perfecta (Recomendado)
+  inventario-fastapi:
+    build: .
+    container_name: inventario-fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_TYPE=fastapi
+    volumes:
+      - ./data:/app/data  # Para persistir archivos subidos
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Streamlit Mejorado
+  inventario-streamlit:
+    build: .
+    container_name: inventario-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - APP_TYPE=streamlit
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    profiles: ["full"]  # Solo se ejecuta con docker-compose --profile full up
+
+  # Dashboard Ejecutivo
+  inventario-dashboard:
+    build: .
+    container_name: inventario-dashboard
+    ports:
+      - "8050:8050"
+    environment:
+      - APP_TYPE=dashboard
+    restart: unless-stopped
+    profiles: ["full"]
+
+  # Nginx como proxy reverso (opcional)
+  nginx:
+    image: nginx:alpine
+    container_name: inventario-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Para certificados SSL
+    depends_on:
+      - inventario-fastapi
+    restart: unless-stopped
+    profiles: ["production"]
+
+volumes:
+  data:
+    driver: local
+
+networks:
+  default:
+    name: inventario-network

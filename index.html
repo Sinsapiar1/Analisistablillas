@@ -573,37 +573,37 @@
 
         <!-- Statistics Dashboard -->
         <div id="statsSection" class="row mb-4" style="display: none;">
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value" id="totalCount">0</div>
                     <div class="text-muted">Total</div>
                 </div>
             </div>
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value text-success" id="exactCount">0</div>
                     <div class="text-muted">Exactos</div>
                 </div>
             </div>
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value text-warning" id="overCount">0</div>
                     <div class="text-muted">Sobrantes</div>
                 </div>
             </div>
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value text-danger" id="underCount">0</div>
                     <div class="text-muted">Faltantes</div>
                 </div>
             </div>
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value text-info" id="notFoundCount">0</div>
                     <div class="text-muted">No Encontrados</div>
                 </div>
             </div>
-            <div class="col-xl-2 col-lg-4 col-md-4 col-sm-6 col-6 mb-3">
+            <div class="col-xxl-2 col-xl-3 col-lg-4 col-md-6 col-sm-6 col-6 mb-3">
                 <div class="metric-card">
                     <div class="metric-value" id="precisionPercent">0%</div>
                     <div class="text-muted">Precisión</div>
@@ -1748,7 +1748,7 @@
                 const historyData = {
                     version: '1.0',
                     timestamp: new Date().toISOString(),
-                    inventoryFile: inventoryFileName || 'archivo_desconocido.xlsx',
+                    inventoryFile: (() => { const fileInput = document.getElementById('inventoryFile'); return fileInput && fileInput.files[0] ? fileInput.files[0].name : 'archivo_desconocido.xlsx'; })(),
                     totalRecords: countedData.length,
                     countedData: countedData,
                     stats: {

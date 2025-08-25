@@ -308,59 +308,138 @@
 
         .charts-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
             margin: 20px 0;
         }
 
         .chart-card {
             background: white;
             border-radius: 12px;
-            padding: 15px;
+            padding: 20px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            height: 350px;
+            height: 400px;
             display: flex;
             flex-direction: column;
+            transition: all 0.3s ease;
         }
 
-        .chart-card h4 {
-            margin-bottom: 10px;
-            font-size: 1.1rem;
+        .chart-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .chart-card h4, .chart-card h5 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
             flex-shrink: 0;
+            font-weight: 600;
         }
 
         .chart-card canvas {
             flex: 1;
-            max-height: 280px;
+            max-height: 320px;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Responsividad mejorada para gráficos */
+        @media (max-width: 1200px) {
+            .charts-section {
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 18px;
+            }
+            
+            .chart-card {
+                height: 380px;
+                padding: 18px;
+            }
+            
+            .chart-card canvas {
+                max-height: 300px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .charts-section {
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 15px;
+            }
+            
+            .chart-card {
+                height: 360px;
+                padding: 16px;
+            }
+            
+            .chart-card canvas {
+                max-height: 280px;
+            }
+            
+            .chart-card h4, .chart-card h5 {
+                font-size: 1.1rem;
+            }
         }
 
         @media (max-width: 768px) {
             .charts-section {
                 grid-template-columns: 1fr;
-                gap: 10px;
+                gap: 12px;
+                margin: 15px 0;
             }
             
             .chart-card {
-                height: 300px;
-                padding: 10px;
+                height: 320px;
+                padding: 12px;
             }
             
             .chart-card canvas {
-                max-height: 230px;
+                max-height: 250px;
             }
             
-            .chart-card h4 {
+            .chart-card h4, .chart-card h5 {
                 font-size: 1rem;
+                margin-bottom: 10px;
             }
         }
 
         @media (max-width: 576px) {
+            .charts-section {
+                margin: 10px 0;
+                gap: 10px;
+            }
+            
             .chart-card {
-                height: 250px;
+                height: 280px;
+                padding: 10px;
             }
             
             .chart-card canvas {
-                max-height: 180px;
+                max-height: 210px;
+            }
+            
+            .chart-card h4, .chart-card h5 {
+                font-size: 0.9rem;
+                margin-bottom: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .chart-card {
+                height: 260px;
+                padding: 8px;
+            }
+            
+            .chart-card canvas {
+                max-height: 190px;
+            }
+            
+            .chart-card h4, .chart-card h5 {
+                font-size: 0.85rem;
             }
         }
 
@@ -606,6 +685,13 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3><i class="fas fa-table"></i> Resultados del Conteo</h3>
                 <div>
+                    <button class="btn btn-outline-info me-2" onclick="saveHistory()">
+                        <i class="fas fa-save"></i> Guardar Historial
+                    </button>
+                    <button class="btn btn-outline-warning me-2" onclick="loadHistory()">
+                        <i class="fas fa-upload"></i> Cargar Historial
+                    </button>
+                    <input type="file" id="historyFileInput" accept=".json" style="display: none;" onchange="loadHistoryFile(event)">
                     <button class="btn btn-success me-2" onclick="exportToExcel()">
                         <i class="fas fa-download"></i> Descargar Excel
                     </button>
@@ -1647,6 +1733,129 @@
                 alert(`Error crítico: ${error.message}\nRevisa la consola para más detalles.`);
             }
         });
+
+        // ========================
+        // FUNCIONES DE HISTORIAL
+        // ========================
+        
+        function saveHistory() {
+            try {
+                if (!countedData || countedData.length === 0) {
+                    app.showMessage('⚠️ No hay datos para guardar', 'warning');
+                    return;
+                }
+
+                const historyData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    inventoryFile: inventoryFileName || 'archivo_desconocido.xlsx',
+                    totalRecords: countedData.length,
+                    countedData: countedData,
+                    stats: {
+                        total: countedData.length,
+                        exact: countedData.filter(item => item.difference === 0).length,
+                        over: countedData.filter(item => item.difference > 0).length,
+                        under: countedData.filter(item => item.difference < 0).length,
+                        notFound: countedData.filter(item => item.systemQuantity === null).length
+                    }
+                };
+
+                const jsonData = JSON.stringify(historyData, null, 2);
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = `historial_conteo_${timestamp}.json`;
+                a.href = url;
+                a.click();
+                
+                URL.revokeObjectURL(url);
+                app.showMessage('💾 Historial guardado exitosamente', 'success');
+                debugLog('💾 Historial guardado');
+                
+            } catch (error) {
+                debugLog(`❌ Error guardando historial: ${error.message}`);
+                app.showMessage('❌ Error guardando historial', 'error');
+            }
+        }
+
+        function loadHistory() {
+            try {
+                document.getElementById('historyFileInput').click();
+            } catch (error) {
+                debugLog(`❌ Error abriendo selector de archivos: ${error.message}`);
+            }
+        }
+
+        function loadHistoryFile(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.name.endsWith('.json')) {
+                    app.showMessage('❌ Por favor selecciona un archivo JSON válido', 'error');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const historyData = JSON.parse(e.target.result);
+                        
+                        // Validar estructura del archivo
+                        if (!historyData.countedData || !Array.isArray(historyData.countedData)) {
+                            throw new Error('Estructura de archivo inválida');
+                        }
+
+                        // Confirmar carga
+                        const confirmMsg = `¿Cargar historial?\n\n` +
+                                         `📁 Archivo: ${historyData.inventoryFile || 'Desconocido'}\n` +
+                                         `📅 Fecha: ${historyData.timestamp ? new Date(historyData.timestamp).toLocaleString() : 'Desconocida'}\n` +
+                                         `📊 Registros: ${historyData.totalRecords || historyData.countedData.length}\n\n` +
+                                         `⚠️ Esto reemplazará los datos actuales.`;
+
+                        if (!confirm(confirmMsg)) {
+                            return;
+                        }
+
+                        // Cargar datos
+                        countedData = historyData.countedData;
+                        
+                        // Actualizar interfaz
+                        app.updateStats();
+                        app.updateTable();
+                        app.updateCharts();
+                        
+                        // Mostrar secciones necesarias
+                        document.getElementById('statsSection').style.display = 'block';
+                        document.getElementById('resultsSection').style.display = 'block';
+                        document.getElementById('chartsSection').style.display = 'block';
+
+                        app.showMessage(`📂 Historial cargado: ${historyData.totalRecords || historyData.countedData.length} registros`, 'success');
+                        debugLog(`📂 Historial cargado: ${file.name}`);
+                        
+                        // Limpiar input
+                        event.target.value = '';
+                        
+                    } catch (parseError) {
+                        debugLog(`❌ Error procesando historial: ${parseError.message}`);
+                        app.showMessage('❌ Error: Archivo de historial inválido', 'error');
+                    }
+                };
+                
+                reader.onerror = function() {
+                    debugLog('❌ Error leyendo archivo de historial');
+                    app.showMessage('❌ Error leyendo archivo', 'error');
+                };
+                
+                reader.readAsText(file);
+                
+            } catch (error) {
+                debugLog(`❌ Error cargando historial: ${error.message}`);
+                app.showMessage('❌ Error cargando historial', 'error');
+            }
+        }
 
         // Manejo global de errores
         window.addEventListener('error', function(e) {

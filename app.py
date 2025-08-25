@@ -92,6 +92,49 @@ st.markdown("""
         transition: transform 0.2s ease;
     }
     
+    /* Responsividad mejorada para Streamlit */
+    @media (max-width: 768px) {
+        .metric-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .main-header {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .executive-dashboard {
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        
+        /* Hacer las métricas más compactas en móvil */
+        .stMetric {
+            padding: 0.5rem !important;
+        }
+        
+        .stMetric > div {
+            font-size: 0.9rem !important;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .metric-card {
+            padding: 0.75rem;
+        }
+        
+        .main-header {
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .executive-dashboard {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    }
+    
     .executive-dashboard {
         background: linear-gradient(135deg, #f8f9fa, #e9ecef);
         border-radius: 15px;
